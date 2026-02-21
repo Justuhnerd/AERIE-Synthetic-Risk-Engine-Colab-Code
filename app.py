@@ -2,388 +2,385 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
+import pickle
 import plotly.express as px
-import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix
+import plotly.graph_objects as go
 import io
 import requests
-import json
+import re
 
-# -------------------------------
-# Page Configuration
-# -------------------------------
-st.set_page_config(
-    page_title="AERIE Risk Intelligence",
-    page_icon="🛡️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Page config
+st.set_page_config(page_title="AERIE Risk Intelligence", page_icon="🛡️", layout="wide", initial_sidebar_state="expanded")
 
-# -------------------------------
-# Load Model Artifacts (with caching)
-# -------------------------------
+# Load model
 @st.cache_resource
 def load_model():
-    """Load model, scaler, and feature list (cached for performance)"""
     model = joblib.load('aerie_model.pkl')
     scaler = joblib.load('aerie_scaler.pkl')
     with open('feature_list.pkl', 'rb') as f:
-        import pickle
         features = pickle.load(f)
     return model, scaler, features
 
 try:
     model, scaler, feature_list = load_model()
-    st.sidebar.success("✅ Model loaded successfully")
+    st.sidebar.success("✅ Model loaded")
 except Exception as e:
-    st.sidebar.error(f"❌ Failed to load model: {e}")
-    st.sidebar.info("Please ensure model files are in the same directory")
+    st.sidebar.error(f"❌ {e}")
     st.stop()
 
-# -------------------------------
-# Helper Functions
-# -------------------------------
-def predict_single(input_dict):
-    """Predict for a single incident"""
-    df = pd.DataFrame([input_dict])[feature_list]
+FEATURE_META = {
+    'severity':                   {"label": "Severity",               "min": 1,   "max": 5,      "default": 3,     "step": 1,    "fmt": ".0f"},
+    'downtime':                   {"label": "Downtime (hrs)",         "min": 0.0, "max": 100.0,  "default": 5.0,   "step": 1.0,  "fmt": ".1f"},
+    'financial_impact':           {"label": "Financial Impact ($)",   "min": 0,   "max": 500000, "default": 50000, "step": 5000, "fmt": ",.0f"},
+    'regulatory_flag':            {"label": "Regulatory Flag",        "min": 0,   "max": 1,      "default": 0,     "step": 1,    "fmt": ".0f"},
+    'data_sensitivity':           {"label": "Data Sensitivity",       "min": 0.0, "max": 1.0,    "default": 0.5,   "step": 0.05, "fmt": ".2f"},
+    'criticality':                {"label": "Criticality",            "min": 1,   "max": 5,      "default": 3,     "step": 1,    "fmt": ".0f"},
+    'severity_x_data_sensitivity':{"label": "Severity × Sensitivity", "min": 0.0, "max": 5.0,    "default": 1.5,   "step": 0.1,  "fmt": ".2f"},
+    'asset_incident_prev_count':  {"label": "Prior Incidents",        "min": 0,   "max": 20,     "default": 0,     "step": 1,    "fmt": ".0f"},
+    'days_since_audit':           {"label": "Days Since Audit",       "min": 0,   "max": 365,    "default": 30,    "step": 5,    "fmt": ".0f"},
+}
+
+def predict_single(d):
+    df = pd.DataFrame([d])[feature_list]
     scaled = scaler.transform(df)
-    proba = model.predict_proba(scaled)[0][1]
-    pred = model.predict(scaled)[0]
-    return pred, proba
+    return model.predict(scaled)[0], model.predict_proba(scaled)[0][1]
 
 def predict_batch(df):
-    """Predict for multiple incidents"""
-    # Ensure all required features exist
     missing = set(feature_list) - set(df.columns)
     if missing:
         return None, f"Missing columns: {missing}"
-    
-    df_input = df[feature_list].copy()
-    # Fill any missing values with median (simplified)
-    df_input = df_input.fillna(df_input.median())
-    
-    scaled = scaler.transform(df_input)
-    probas = model.predict_proba(scaled)[:, 1]
-    preds = model.predict(scaled)
-    return pd.DataFrame({
-        'predicted_major_event': preds,
-        'probability': probas
-    }), None
+    df_in = df[feature_list].copy().fillna(df[feature_list].median())
+    scaled = scaler.transform(df_in)
+    return pd.DataFrame({'predicted_major_event': model.predict(scaled), 'probability': model.predict_proba(scaled)[:,1]}), None
 
-def generate_scenarios(prompt, api_token, model="mistralai/Mistral-7B-Instruct-v0.1"):
-    """Call Hugging Face Inference API to generate text."""
-    API_URL = f"https://api-inference.huggingface.co/models/{model}"
-    headers = {"Authorization": f"Bearer {api_token}"}
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 300,
-            "temperature": 0.7,
-            "return_full_text": False
-        }
-    }
-    response = requests.post(API_URL, headers=headers, json=payload)
-    return response.json()
+def risk_label(p):
+    return "🟢 Low Risk" if p < 0.3 else ("🟡 Medium Risk" if p < 0.7 else "🔴 High Risk")
 
-# -------------------------------
-# Sidebar Navigation
-# -------------------------------
+def gauge_chart(proba):
+    color = "green" if proba < 0.3 else ("orange" if proba < 0.7 else "red")
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=round(proba * 100, 1),
+        number={"suffix": "%", "font": {"size": 40}},
+        gauge={
+            "axis": {"range": [0, 100]},
+            "bar": {"color": color, "thickness": 0.3},
+            "steps": [{"range": [0,30], "color": "#d4edda"}, {"range": [30,70], "color": "#fff3cd"}, {"range": [70,100], "color": "#f8d7da"}],
+        },
+        title={"text": "Major Event Probability", "font": {"size": 16}},
+    ))
+    fig.update_layout(height=280, margin=dict(t=50, b=10, l=30, r=30))
+    return fig
+
+def sweep_chart(base_dict, sweep_feature):
+    meta = FEATURE_META[sweep_feature]
+    vals = np.linspace(meta["min"], meta["max"], 40)
+    probas = []
+    for v in vals:
+        d = base_dict.copy()
+        d[sweep_feature] = v
+        d['severity_x_data_sensitivity'] = d['severity'] * d['data_sensitivity']
+        _, p = predict_single(d)
+        probas.append(p * 100)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=vals, y=probas, mode='lines+markers',
+        line=dict(color='royalblue', width=2.5), fill='tozeroy', fillcolor='rgba(65,105,225,0.1)'))
+    fig.add_vline(x=base_dict[sweep_feature], line_dash="dash", line_color="red", line_width=2,
+        annotation_text=f"Current: {base_dict[sweep_feature]:{meta['fmt']}}", annotation_position="top right")
+    fig.add_hline(y=50, line_dash="dot", line_color="gray",
+        annotation_text="50% threshold", annotation_position="right")
+    fig.update_layout(title=f"Risk Sensitivity to: {meta['label']}", xaxis_title=meta['label'],
+        yaxis_title="Risk Probability (%)", yaxis=dict(range=[0, 105]), height=360,
+        margin=dict(t=50, b=40, l=60, r=30), showlegend=False)
+    return fig
+
+def call_hf_api(prompt, token):
+    url = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
+    r = requests.post(url, headers={"Authorization": f"Bearer {token}"},
+        json={"inputs": prompt, "parameters": {"max_new_tokens": 700, "temperature": 0.7, "return_full_text": False}}, timeout=60)
+    return r.json()
+
+def parse_csv_block(text):
+    m = re.search(r'```(?:csv)?\s*\n(.*?)```', text, re.DOTALL | re.IGNORECASE)
+    if m:
+        return m.group(1).strip()
+    for i, line in enumerate(text.splitlines()):
+        if 'severity' in line.lower() and ',' in line:
+            return "\n".join(text.splitlines()[i:])
+    return text.strip()
+
+# Sidebar
 st.sidebar.title("🛡️ AERIE")
 st.sidebar.markdown("**A**daptive **E**nterprise **R**isk **I**ntelligence **E**ngine")
 st.sidebar.markdown("---")
-
-app_mode = st.sidebar.radio(
-    "Choose Mode",
-    ["🔍 Single Prediction", "📤 Batch Upload", "🎮 Scenario Simulator", "📊 Model Info", "🤖 AI Scenario Generator"]
-)
-
+page = st.sidebar.radio("Navigation", ["🔍 Single Prediction","📤 Batch Upload","🎮 Scenario Simulator","📊 Model Info","🤖 AI Scenario Generator"])
 st.sidebar.markdown("---")
-st.sidebar.markdown("### Feature List")
-for i, feat in enumerate(feature_list):
-    st.sidebar.text(f"{i+1}. {feat}")
+st.sidebar.markdown("### Features")
+for i, f in enumerate(feature_list):
+    st.sidebar.text(f"{i+1}. {f}")
 
-# -------------------------------
-# Mode 1: Single Prediction Form
-# -------------------------------
-if app_mode == "🔍 Single Prediction":
+# ================================================================
+# SINGLE PREDICTION
+# ================================================================
+if page == "🔍 Single Prediction":
     st.title("🔍 Single Incident Risk Predictor")
-    st.markdown("Enter incident details below to predict if it's a **Major Event**.")
-    
-    with st.form("prediction_form"):
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            severity = st.slider("Severity (1-5)", 1, 5, 3)
+    with st.form("pred_form"):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            severity = st.slider("Severity (1–5)", 1, 5, 3)
             downtime = st.number_input("Downtime (hours)", 0.0, 100.0, 5.0)
-            financial_impact = st.number_input("Financial Impact ($)", 0, 500000, 50000)
+            financial_impact = st.number_input("Financial Impact ($)", 0, 500000, 50000, step=5000)
             regulatory_flag = st.selectbox("Regulatory Flag", [0, 1])
-        
-        with col2:
-            data_sensitivity = st.slider("Data Sensitivity (0-1)", 0.0, 1.0, 0.5)
-            criticality = st.slider("Criticality (1-5)", 1, 5, 3)
+        with c2:
+            data_sensitivity = st.slider("Data Sensitivity (0–1)", 0.0, 1.0, 0.5)
+            criticality = st.slider("Criticality (1–5)", 1, 5, 3)
             asset_incident_prev_count = st.number_input("Prior Incidents on Asset", 0, 20, 0)
             days_since_audit = st.number_input("Days Since Last Audit", 0, 365, 30)
-        
-        with col3:
+        with c3:
             st.markdown("### Auto-calculated")
-            severity_x_data_sensitivity = severity * data_sensitivity
-            st.metric("Severity × Sensitivity", f"{severity_x_data_sensitivity:.2f}")
-            
-            # Preview of input vector
-            input_preview = {
-                'severity': severity,
-                'downtime': downtime,
-                'financial_impact': financial_impact,
-                'regulatory_flag': regulatory_flag,
-                'data_sensitivity': data_sensitivity,
-                'criticality': criticality,
-                'severity_x_data_sensitivity': severity_x_data_sensitivity,
-                'asset_incident_prev_count': asset_incident_prev_count,
-                'days_since_audit': days_since_audit
-            }
-            st.json(input_preview)
-        
+            sxd = severity * data_sensitivity
+            st.metric("Severity × Sensitivity", f"{sxd:.2f}")
+            st.json({"severity": severity, "downtime": downtime, "financial_impact": financial_impact,
+                     "regulatory_flag": regulatory_flag, "data_sensitivity": data_sensitivity,
+                     "criticality": criticality, "sev_x_sens": sxd,
+                     "prior_incidents": asset_incident_prev_count, "days_since_audit": days_since_audit})
         submitted = st.form_submit_button("🚀 Predict Risk", use_container_width=True)
-        
-        if submitted:
-            input_dict = {
-                'severity': severity,
-                'downtime': downtime,
-                'financial_impact': financial_impact,
-                'regulatory_flag': regulatory_flag,
-                'data_sensitivity': data_sensitivity,
-                'criticality': criticality,
-                'severity_x_data_sensitivity': severity_x_data_sensitivity,
-                'asset_incident_prev_count': asset_incident_prev_count,
-                'days_since_audit': days_since_audit
-            }
-            
-            pred, proba = predict_single(input_dict)
-            
-            # Display results
-            st.markdown("---")
-            col_res1, col_res2, col_res3 = st.columns(3)
-            
-            with col_res1:
-                if pred == 1:
-                    st.error(f"🚨 **MAJOR EVENT**")
-                else:
-                    st.success(f"✅ **Minor / Routine**")
-            
-            with col_res2:
-                st.metric("Probability", f"{proba:.1%}")
-            
-            with col_res3:
-                # Risk level indicator
-                if proba < 0.3:
-                    st.info("🟢 Low Risk")
-                elif proba < 0.7:
-                    st.warning("🟡 Medium Risk")
-                else:
-                    st.error("🔴 High Risk")
-            
-            # Feature importance visualization
-            st.subheader("📊 What Drove This Prediction?")
-            if hasattr(model, 'feature_importances_'):
-                importances = model.feature_importances_
-                feat_imp_df = pd.DataFrame({
-                    'feature': feature_list,
-                    'importance': importances
-                }).sort_values('importance', ascending=True)
-                
-                fig = px.bar(feat_imp_df, 
-                            x='importance', 
-                            y='feature',
-                            orientation='h',
-                            title="Global Feature Importance",
-                            color='importance',
-                            color_continuous_scale='Blues')
-                st.plotly_chart(fig, use_container_width=True)
 
-# -------------------------------
-# Mode 2: Batch Upload
-# -------------------------------
-elif app_mode == "📤 Batch Upload":
+    if submitted:
+        d = {'severity': severity, 'downtime': downtime, 'financial_impact': financial_impact,
+             'regulatory_flag': regulatory_flag, 'data_sensitivity': data_sensitivity,
+             'criticality': criticality, 'severity_x_data_sensitivity': sxd,
+             'asset_incident_prev_count': asset_incident_prev_count, 'days_since_audit': days_since_audit}
+        pred, proba = predict_single(d)
+        st.markdown("---")
+        r1, r2, r3 = st.columns([1,1,2])
+        with r1:
+            st.error("🚨 **MAJOR EVENT**") if pred == 1 else st.success("✅ **Minor / Routine**")
+        with r2:
+            st.metric("Probability", f"{proba:.1%}")
+            st.markdown(risk_label(proba))
+        with r3:
+            st.plotly_chart(gauge_chart(proba), use_container_width=True)
+        st.subheader("📊 Feature Importance")
+        imp_df = pd.DataFrame({'Feature': feature_list, 'Importance': model.feature_importances_}).sort_values('Importance')
+        fig = px.bar(imp_df, x='Importance', y='Feature', orientation='h', color='Importance', color_continuous_scale='Blues')
+        st.plotly_chart(fig, use_container_width=True)
+
+# ================================================================
+# BATCH UPLOAD
+# ================================================================
+elif page == "📤 Batch Upload":
     st.title("📤 Batch Risk Scoring")
-    st.markdown("Upload a CSV file with multiple incidents to score them all at once.")
-    
-    # Template download
-    template_df = pd.DataFrame(columns=feature_list)
-    csv_template = template_df.to_csv(index=False)
-    st.download_button(
-        label="📥 Download Template CSV",
-        data=csv_template,
-        file_name="aerie_template.csv",
-        mime="text/csv"
-    )
-    
-    uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
-    
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-        st.write("### Preview of uploaded data")
+    st.download_button("📥 Download Template CSV", pd.DataFrame(columns=feature_list).to_csv(index=False), "aerie_template.csv", "text/csv")
+    uploaded = st.file_uploader("Upload CSV", type="csv")
+    if uploaded:
+        df = pd.read_csv(uploaded)
         st.dataframe(df.head())
-        
-        if st.button("🔮 Score All Incidents"):
-            with st.spinner("Scoring..."):
-                results, error = predict_batch(df)
-                
-                if error:
-                    st.error(error)
-                else:
-                    # Combine with original data
-                    output_df = pd.concat([df, results], axis=1)
-                    
-                    st.success(f"✅ Scored {len(output_df)} incidents")
-                    st.write("### Results Preview")
-                    st.dataframe(output_df.head())
-                    
-                    # Summary statistics
-                    col1, col2, col3 = st.columns(3)
-                    col1.metric("Major Events Predicted", results['predicted_major_event'].sum())
-                    col2.metric("Average Probability", f"{results['probability'].mean():.1%}")
-                    col3.metric("High Risk (>70%)", (results['probability'] > 0.7).sum())
-                    
-                    # Download button
-                    csv_output = output_df.to_csv(index=False)
-                    st.download_button(
-                        label="📥 Download Complete Results",
-                        data=csv_output,
-                        file_name="aerie_predictions.csv",
-                        mime="text/csv"
-                    )
+        if st.button("🔮 Score All"):
+            results, err = predict_batch(df)
+            if err:
+                st.error(err)
+            else:
+                out = pd.concat([df, results], axis=1)
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Major Events", results['predicted_major_event'].sum())
+                m2.metric("Avg Probability", f"{results['probability'].mean():.1%}")
+                m3.metric("High Risk >70%", (results['probability'] > 0.7).sum())
+                st.dataframe(out)
+                fig = px.histogram(results, x='probability', nbins=20, title="Risk Distribution", color_discrete_sequence=['royalblue'])
+                fig.add_vline(x=0.5, line_dash="dash", line_color="red")
+                st.plotly_chart(fig, use_container_width=True)
+                st.download_button("📥 Download Results", out.to_csv(index=False), "aerie_predictions.csv", "text/csv")
 
-# -------------------------------
-# Mode 3: Scenario Simulator
-# -------------------------------
-elif app_mode == "🎮 Scenario Simulator":
+# ================================================================
+# SCENARIO SIMULATOR (rebuilt)
+# ================================================================
+elif page == "🎮 Scenario Simulator":
     st.title("🎮 What-If Scenario Simulator")
-    st.markdown("Adjust the sliders to explore how different factors affect risk.")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        severity = st.slider("Severity", 1, 5, 3, key="sim_severity")
-        downtime = st.slider("Downtime (hours)", 0.0, 100.0, 5.0, key="sim_downtime")
-        financial = st.slider("Financial Impact ($)", 0, 500000, 50000, key="sim_financial")
-        reg_flag = st.selectbox("Regulatory Flag", [0, 1], key="sim_reg")
-    
-    with col2:
-        data_sens = st.slider("Data Sensitivity", 0.0, 1.0, 0.5, key="sim_data")
-        crit = st.slider("Criticality", 1, 5, 3, key="sim_crit")
-        prev_count = st.slider("Prior Incidents", 0, 20, 0, key="sim_prev")
-        audit_days = st.slider("Days Since Audit", 0, 365, 30, key="sim_audit")
-    
-    # Auto-calc interaction
-    sev_x_data = severity * data_sens
-    
-    input_dict = {
-        'severity': severity,
-        'downtime': downtime,
-        'financial_impact': financial,
-        'regulatory_flag': reg_flag,
-        'data_sensitivity': data_sens,
-        'criticality': crit,
-        'severity_x_data_sensitivity': sev_x_data,
-        'asset_incident_prev_count': prev_count,
-        'days_since_audit': audit_days
-    }
-    
-    pred, proba = predict_single(input_dict)
-    
-    # Visualize risk
-    st.markdown("---")
-    st.subheader("📊 Risk Assessment")
-    
-    # Gauge chart
-    fig = px.bar(x=["Risk Level"], y=[proba], range_y=[0, 1],
-                 color=[proba], color_continuous_scale=['green', 'yellow', 'red'])
-    fig.update_layout(showlegend=False, title=f"Risk Probability: {proba:.1%}")
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Prediction result
-    if pred == 1:
-        st.error("🚨 This scenario would be classified as a **MAJOR EVENT**")
-    else:
-        st.success("✅ This scenario would be classified as **Minor / Routine**")
+    st.markdown("Adjust sliders to model a scenario. The **sensitivity chart** shows how changing any single factor shifts predicted risk while holding everything else constant.")
 
-# -------------------------------
-# Mode 4: Model Information
-# -------------------------------
-elif app_mode == "📊 Model Info":
+    c1, c2 = st.columns(2)
+    with c1:
+        severity    = st.slider("Severity", 1, 5, 3)
+        downtime    = st.slider("Downtime (hrs)", 0.0, 100.0, 5.0)
+        financial   = st.slider("Financial Impact ($)", 0, 500000, 50000, step=5000)
+        reg_flag    = st.selectbox("Regulatory Flag", [0, 1])
+    with c2:
+        data_sens   = st.slider("Data Sensitivity", 0.0, 1.0, 0.5)
+        crit        = st.slider("Criticality", 1, 5, 3)
+        prev_count  = st.slider("Prior Incidents", 0, 20, 0)
+        audit_days  = st.slider("Days Since Audit", 0, 365, 30)
+
+    base = {
+        'severity': severity, 'downtime': downtime, 'financial_impact': financial,
+        'regulatory_flag': reg_flag, 'data_sensitivity': data_sens, 'criticality': crit,
+        'severity_x_data_sensitivity': severity * data_sens,
+        'asset_incident_prev_count': prev_count, 'days_since_audit': audit_days,
+    }
+    pred, proba = predict_single(base)
+
+    st.markdown("---")
+    gc, vc = st.columns([1.4, 1])
+    with gc:
+        st.plotly_chart(gauge_chart(proba), use_container_width=True)
+    with vc:
+        st.markdown("### Prediction")
+        st.error("🚨 **MAJOR EVENT**") if pred == 1 else st.success("✅ **Minor / Routine**")
+        st.markdown(f"**Probability:** {proba:.1%}")
+        st.markdown(risk_label(proba))
+
+    st.markdown("---")
+    st.subheader("📈 Sensitivity Analysis")
+    st.markdown("Pick a variable to sweep across its full range — all other factors stay fixed at your current slider values.")
+    sweep_feat = st.selectbox("Variable to sweep",
+        [f for f in feature_list if f != 'severity_x_data_sensitivity'],
+        format_func=lambda x: FEATURE_META[x]["label"])
+    with st.spinner("Calculating..."):
+        st.plotly_chart(sweep_chart(base, sweep_feat), use_container_width=True)
+
+    st.markdown("---")
+    st.subheader("📊 Worst-Case Risk Delta — What Happens If Each Factor Hits Its Maximum?")
+    deltas = {}
+    for feat in feature_list:
+        if feat == 'severity_x_data_sensitivity':
+            continue
+        w = base.copy()
+        w[feat] = FEATURE_META[feat]["max"]
+        w['severity_x_data_sensitivity'] = w['severity'] * w['data_sensitivity']
+        _, wp = predict_single(w)
+        deltas[FEATURE_META[feat]["label"]] = round((wp - proba) * 100, 2)
+    ddf = pd.DataFrame(list(deltas.items()), columns=["Feature","Delta (pp)"]).sort_values("Delta (pp)")
+    fig2 = go.Figure(go.Bar(x=ddf["Delta (pp)"], y=ddf["Feature"], orientation='h',
+        marker_color=['red' if v > 0 else 'green' for v in ddf["Delta (pp)"]]))
+    fig2.update_layout(title="Risk change (pp) if each feature is pushed to maximum",
+        xaxis_title="Percentage-point change", height=340,
+        margin=dict(t=50, b=40, l=160, r=30),
+        xaxis=dict(zeroline=True, zerolinecolor='black', zerolinewidth=1.5))
+    st.plotly_chart(fig2, use_container_width=True)
+
+# ================================================================
+# MODEL INFO
+# ================================================================
+elif page == "📊 Model Info":
     st.title("📊 Model Information")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Model Type")
-        st.info(f"**Random Forest Classifier**")
-        st.write(f"Number of trees: {model.n_estimators}")
-        st.write(f"Features used: {len(feature_list)}")
-        
-    with col2:
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("Model")
+        st.info("**Random Forest Classifier**")
+        st.write(f"Trees: {model.n_estimators}  |  Features: {len(feature_list)}")
+    with c2:
         st.subheader("Class Weights")
         st.write(model.class_weight_)
-    
-    st.subheader("Feature Importances")
-    importances = model.feature_importances_
-    imp_df = pd.DataFrame({
-        'Feature': feature_list,
-        'Importance': importances
-    }).sort_values('Importance', ascending=False)
-    
-    fig = px.bar(imp_df, x='Importance', y='Feature', orientation='h',
-                 title="Global Feature Importance",
-                 color='Importance', color_continuous_scale='Viridis')
+    imp_df = pd.DataFrame({'Feature': feature_list, 'Importance': model.feature_importances_}).sort_values('Importance')
+    fig = px.bar(imp_df, x='Importance', y='Feature', orientation='h', color='Importance', color_continuous_scale='Viridis')
     st.plotly_chart(fig, use_container_width=True)
-    
-    st.subheader("How to Use This Model")
-    st.markdown("""
-    - **Single Prediction**: Enter incident details manually
-    - **Batch Upload**: Score multiple incidents from CSV
-    - **Scenario Simulator**: Explore "what-if" scenarios
-    - **All features must be provided** in the exact order shown in the sidebar
-    """)
 
-# -------------------------------
-# Mode 5: AI Scenario Generator
-# -------------------------------
-elif app_mode == "🤖 AI Scenario Generator":
-    st.title("🤖 Generate Incident Scenarios with AI")
-    st.markdown("Use a free Hugging Face model to create plausible incident descriptions. Then you can manually enter them in other modes, or (optionally) parse and score them automatically.")
-    
-    # Try to get API token from secrets, else ask user
+# ================================================================
+# AI SCENARIO GENERATOR (rebuilt — closed loop)
+# ================================================================
+elif page == "🤖 AI Scenario Generator":
+    st.title("🤖 AI Scenario Generator")
+    st.markdown("Describe the incidents you want to stress-test. The AI writes structured scenarios — AERIE **automatically scores them**.")
+
     try:
         HF_TOKEN = st.secrets["HF_TOKEN"]
+        st.sidebar.success("🔑 Token loaded from secrets")
     except:
-        HF_TOKEN = st.text_input("Hugging Face API Token", type="password", help="Get a free token at huggingface.co/settings/tokens")
-    
-    if not HF_TOKEN:
-        st.warning("Please enter your Hugging Face API token to use this feature.")
-        st.stop()
-    
-    # Prompt input
-    default_prompt = "Generate 5 realistic IT security incidents with varying severity, downtime, and financial impact for a financial services company. Output as a bullet list."
-    user_prompt = st.text_area("Describe the kind of scenarios you want", value=default_prompt, height=150)
-    
-    if st.button("🚀 Generate Scenarios"):
-        with st.spinner("AI is thinking... (may take 10-30 seconds)"):
-            try:
-                result = generate_scenarios(user_prompt, HF_TOKEN)
-                # The API returns a list with generated text, or an error dict
-                if isinstance(result, list) and len(result) > 0:
-                    generated_text = result[0].get('generated_text', str(result))
-                elif isinstance(result, dict) and 'error' in result:
-                    st.error(f"API error: {result['error']}")
-                    st.stop()
-                else:
-                    generated_text = str(result)
-                
-                st.subheader("✨ Generated Scenarios")
-                st.write(generated_text)
-                
-                # Optional: add a button to parse into structured format (advanced)
-                # You can extend this by asking the AI to output CSV and then parsing.
-            except Exception as e:
-                st.error(f"Error calling API: {e}")
+        HF_TOKEN = st.text_input("Hugging Face API Token", type="password", help="huggingface.co/settings/tokens")
 
+    if not HF_TOKEN:
+        st.warning("Enter your Hugging Face API token to continue.")
+        st.stop()
+
+    a1, a2 = st.columns(2)
+    with a1:
+        industry = st.selectbox("Industry / Context", ["Financial Services","Healthcare","Manufacturing","Government","Retail","Energy & Utilities"])
+        n_scenarios = st.slider("Number of scenarios", 3, 10, 5)
+    with a2:
+        threat = st.selectbox("Threat Focus", ["Mixed / Varied","Cybersecurity","Operational Failures","Data Breaches","Regulatory Incidents","Third-party / Supply Chain"])
+        sev_bias = st.selectbox("Severity Bias", ["Realistic mix","Mostly high-severity","Mostly low-severity"])
+
+    extra = st.text_area("Additional context (optional)", placeholder="E.g. 'Focus on cloud infrastructure'", height=70)
+
+    prompt = f"""You are a risk analyst for {industry}. Generate exactly {n_scenarios} incident scenarios. Focus: {threat}. Severity bias: {sev_bias}.{' Context: ' + extra if extra else ''}
+
+Output ONLY a valid CSV block (no extra text, no markdown outside the CSV). Use these exact headers:
+severity,downtime,financial_impact,regulatory_flag,data_sensitivity,criticality,asset_incident_prev_count,days_since_audit,description
+
+Constraints:
+- severity: int 1-5
+- downtime: float hours 0-100
+- financial_impact: int 0-500000
+- regulatory_flag: 0 or 1
+- data_sensitivity: float 0.0-1.0
+- criticality: int 1-5
+- asset_incident_prev_count: int 0-20
+- days_since_audit: int 0-365
+- description: one sentence, NO commas inside it
+
+Example:
+4,36.5,180000,1,0.85,4,3,120,Ransomware attack encrypting finance department servers
+
+CSV:"""
+
+    if st.button("🚀 Generate & Score", use_container_width=True):
+        with st.spinner("AI is writing scenarios… (15–30 seconds)"):
+            try:
+                raw = call_hf_api(prompt, HF_TOKEN)
+                if isinstance(raw, dict) and 'error' in raw:
+                    st.error(f"API error: {raw['error']}")
+                    st.stop()
+                text = raw[0].get('generated_text', str(raw)) if isinstance(raw, list) else str(raw)
+
+                csv_text = parse_csv_block(text)
+                try:
+                    scenarios_df = pd.read_csv(io.StringIO(csv_text))
+                except Exception:
+                    st.error("Could not parse CSV from AI output.")
+                    st.code(text)
+                    st.stop()
+
+                scored, err = predict_batch(scenarios_df)
+                if err:
+                    st.warning(f"Scoring issue: {err}")
+                    st.dataframe(scenarios_df)
+                else:
+                    out = pd.concat([scenarios_df, scored], axis=1).sort_values('probability', ascending=False).reset_index(drop=True)
+
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("Major Events", scored['predicted_major_event'].sum())
+                    m2.metric("Avg Risk", f"{scored['probability'].mean():.1%}")
+                    m3.metric("High Risk >70%", (scored['probability'] > 0.7).sum())
+
+                    st.markdown("---")
+                    st.subheader("📋 Scored Scenarios")
+
+                    def highlight(row):
+                        p = row['probability']
+                        c = '#f8d7da' if p >= 0.7 else ('#fff3cd' if p >= 0.3 else '#d4edda')
+                        return [f'background-color: {c}'] * len(row)
+
+                    disp = [c for c in ['description','severity','downtime','financial_impact','regulatory_flag','data_sensitivity','criticality','probability','predicted_major_event'] if c in out.columns]
+                    st.dataframe(
+                        out[disp].style.apply(highlight, axis=1).format({
+                            'probability': '{:.1%}', 'financial_impact': '${:,.0f}',
+                            'data_sensitivity': '{:.2f}', 'downtime': '{:.1f}h'
+                        }),
+                        use_container_width=True
+                    )
+
+                    fig = px.bar(out.reset_index(), x='index', y='probability',
+                        color='probability', color_continuous_scale=['green','yellow','red'],
+                        range_color=[0,1], labels={'index':'Scenario #','probability':'Risk'},
+                        title="Risk Probability by Scenario (highest → lowest)",
+                        text=out['probability'].apply(lambda p: f"{p:.0%}").values)
+                    fig.update_traces(textposition='outside')
+                    fig.update_layout(yaxis=dict(range=[0,1.15]), coloraxis_showscale=False)
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    st.download_button("📥 Download Scored Scenarios", out.to_csv(index=False), "aerie_ai_scenarios.csv", "text/csv")
+
+            except requests.exceptions.Timeout:
+                st.error("Timed out — the model may be cold-starting. Try again in 30s.")
+            except Exception as e:
+                st.error(f"Error: {e}")
