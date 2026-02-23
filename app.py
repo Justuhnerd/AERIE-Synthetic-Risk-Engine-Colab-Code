@@ -155,7 +155,10 @@ if page == "🔍 Single Prediction":
         st.markdown("---")
         r1, r2, r3 = st.columns([1,1,2])
         with r1:
-            st.error("🚨 **MAJOR EVENT**") if pred == 1 else st.success("✅ **Minor / Routine**")
+            if pred == 1:
+                st.error("🚨 **MAJOR EVENT**")
+            else:
+                st.success("✅ **Minor / Routine**")
         with r2:
             st.metric("Probability", f"{proba:.1%}")
             st.markdown(risk_label(proba))
@@ -225,7 +228,10 @@ elif page == "🎮 Scenario Simulator":
         st.plotly_chart(gauge_chart(proba), use_container_width=True)
     with vc:
         st.markdown("### Prediction")
-        st.error("🚨 **MAJOR EVENT**") if pred == 1 else st.success("✅ **Minor / Routine**")
+        if pred == 1:
+            st.error("🚨 **MAJOR EVENT**")
+        else:
+            st.success("✅ **Minor / Routine**")
         st.markdown(f"**Probability:** {proba:.1%}")
         st.markdown(risk_label(proba))
 
