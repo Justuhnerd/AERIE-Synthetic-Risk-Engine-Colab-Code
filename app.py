@@ -94,11 +94,16 @@ def sweep_chart(base_dict, sweep_feature):
         margin=dict(t=50, b=40, l=60, r=30), showlegend=False)
     return fig
 
-def call_hf_api(prompt, token):
-    url = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
-    r = requests.post(url, headers={"Authorization": f"Bearer {token}"},
-        json={"inputs": prompt, "parameters": {"max_new_tokens": 700, "temperature": 0.7, "return_full_text": False}}, timeout=60)
-    return r.json()
+def call_gemini_api(prompt, api_key):
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024}
+    }
+    r = requests.post(url, json=payload, timeout=60)
+    r.raise_for_status()
+    data = r.json()
+    return data["candidates"][0]["content"]["parts"][0]["text"]
 
 def parse_csv_block(text):
     m = re.search(r'```(?:csv)?\s*\n(.*?)```', text, re.DOTALL | re.IGNORECASE)
@@ -289,13 +294,14 @@ elif page == "🤖 AI Scenario Generator":
     st.markdown("Describe the incidents you want to stress-test. The AI writes structured scenarios — AERIE **automatically scores them**.")
 
     try:
-        HF_TOKEN = st.secrets["HF_TOKEN"]
-        st.sidebar.success("🔑 Token loaded from secrets")
+        GEMINI_KEY = st.secrets["GEMINI_API_KEY"]
+        st.sidebar.success("🔑 Gemini key loaded from secrets")
     except:
-        HF_TOKEN = st.text_input("Hugging Face API Token", type="password", help="huggingface.co/settings/tokens")
+        GEMINI_KEY = st.text_input("Google Gemini API Key", type="password",
+            help="Free key at aistudio.google.com/app/apikey")
 
-    if not HF_TOKEN:
-        st.warning("Enter your Hugging Face API token to continue.")
+    if not GEMINI_KEY:
+        st.warning("Enter your Gemini API key. Get one free at aistudio.google.com/app/apikey")
         st.stop()
 
     a1, a2 = st.columns(2)
@@ -330,13 +336,9 @@ Example:
 CSV:"""
 
     if st.button("🚀 Generate & Score", use_container_width=True):
-        with st.spinner("AI is writing scenarios… (15–30 seconds)"):
+        with st.spinner("Gemini is writing scenarios… (usually under 5 seconds)"):
             try:
-                raw = call_hf_api(prompt, HF_TOKEN)
-                if isinstance(raw, dict) and 'error' in raw:
-                    st.error(f"API error: {raw['error']}")
-                    st.stop()
-                text = raw[0].get('generated_text', str(raw)) if isinstance(raw, list) else str(raw)
+                text = call_gemini_api(prompt, GEMINI_KEY)
 
                 csv_text = parse_csv_block(text)
                 try:
