@@ -95,7 +95,7 @@ def sweep_chart(base_dict, sweep_feature):
     return fig
 
 def call_gemini_api(prompt, api_key):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024}
@@ -281,7 +281,7 @@ elif page == "📊 Model Info":
         st.write(f"Trees: {model.n_estimators}  |  Features: {len(feature_list)}")
     with c2:
         st.subheader("Class Weights")
-        st.write(model.class_weight_)
+        st.write(model.class_weight if model.class_weight else "None (equal weights)")
     imp_df = pd.DataFrame({'Feature': feature_list, 'Importance': model.feature_importances_}).sort_values('Importance')
     fig = px.bar(imp_df, x='Importance', y='Feature', orientation='h', color='Importance', color_continuous_scale='Viridis')
     st.plotly_chart(fig, use_container_width=True)
@@ -336,7 +336,7 @@ Example:
 CSV:"""
 
     if st.button("🚀 Generate & Score", use_container_width=True):
-        with st.spinner("Gemini is writing scenarios… (usually under 5 seconds)"):
+        with st.spinner("Gemini 2.0 Flash is writing scenarios…"):
             try:
                 text = call_gemini_api(prompt, GEMINI_KEY)
 
