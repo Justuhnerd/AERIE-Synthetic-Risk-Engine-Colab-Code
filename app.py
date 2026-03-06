@@ -443,15 +443,22 @@ hr { border-color: var(--divider) !important; margin: 1.5rem 0 !important; }
 # ================================================================
 # PLOTLY THEME
 # ================================================================
+_AXIS = dict(gridcolor='#E2E6EC', linecolor='#E2E6EC', tickfont=dict(color='#6B7A90', size=10))
+
 PT = dict(
     paper_bgcolor='rgba(0,0,0,0)',
     plot_bgcolor='#FAFBFC',
     font=dict(family='IBM Plex Mono, monospace', color='#6B7A90', size=11),
-    xaxis=dict(gridcolor='#E2E6EC', linecolor='#E2E6EC', tickfont=dict(color='#6B7A90', size=10)),
-    yaxis=dict(gridcolor='#E2E6EC', linecolor='#E2E6EC', tickfont=dict(color='#6B7A90', size=10)),
     title=dict(font=dict(family='IBM Plex Sans, sans-serif', color='#0F1C2E', size=13), x=0),
     margin=dict(t=44, b=36, l=16, r=16),
 )
+
+def pt(**overrides):
+    layout = dict(PT)
+    layout['xaxis'] = {**_AXIS, **overrides.pop('xaxis', {})}
+    layout['yaxis'] = {**_AXIS, **overrides.pop('yaxis', {})}
+    layout.update(overrides)
+    return layout
 
 # ================================================================
 # MODEL
@@ -572,14 +579,13 @@ def sweep_chart(base_dict, sweep_feature):
         annotation_text="50%", annotation_font_color="#C8CDD6",
         annotation_font_size=9, annotation_position="right")
 
-    fig.update_layout(
-        **PT,
+    fig.update_layout(**pt(
         title=f"Sensitivity — {meta['label']}",
         xaxis_title=meta['label'],
         yaxis_title="Risk Probability (%)",
-        yaxis=dict(range=[0,108], gridcolor='#E2E6EC'),
+        yaxis=dict(range=[0,108]),
         height=320,
-    )
+    ))
     return fig
 
 def get_available_gemini_models(api_key):
@@ -732,7 +738,7 @@ if page == "Single Prediction":
                     colorscale=[[0,'#EBF4FB'],[1,'#1D6FA4']],
                     showscale=False)
     ))
-    fig.update_layout(**PT, height=280, xaxis_title="Importance Score")
+    fig.update_layout(**pt(height=280, xaxis_title="Importance Score"))
     st.plotly_chart(fig, use_container_width=True)
 
 # ================================================================
@@ -776,7 +782,7 @@ elif page == "Batch Upload":
                 fig.add_vline(x=0.5, line_dash="dash", line_color="#A05C00",
                     annotation_text="Decision boundary",
                     annotation_font_color="#A05C00", annotation_font_size=10)
-                fig.update_layout(**PT)
+                fig.update_layout(**pt())
                 st.plotly_chart(fig, use_container_width=True)
                 st.download_button("Download Results", out.to_csv(index=False),
                                    "aerie_predictions.csv", "text/csv")
@@ -871,11 +877,11 @@ elif page == "Scenario Simulator":
         marker_color=['#B91C1C' if v > 0 else '#1A7F5A' for v in ddf["Delta (pp)"]],
         marker_opacity=0.8
     ))
-    fig2.update_layout(
-        **PT, title="Risk delta when each feature is maximised",
+    fig2.update_layout(**pt(
+        title="Risk delta when each feature is maximised",
         xaxis_title="Percentage-point change", height=300,
-        xaxis=dict(zeroline=True, zerolinecolor='#C8CDD6', zerolinewidth=1.5, gridcolor='#E2E6EC'),
-    )
+        xaxis=dict(zeroline=True, zerolinecolor='#C8CDD6', zerolinewidth=1.5),
+    ))
     st.plotly_chart(fig2, use_container_width=True)
 
 # ================================================================
@@ -899,7 +905,7 @@ elif page == "Model Info":
                     colorscale=[[0,'#EBF4FB'],[0.5,'#6BAED6'],[1,'#1D6FA4']],
                     showscale=False)
     ))
-    fig.update_layout(**PT, height=300, xaxis_title="Importance Score")
+    fig.update_layout(**pt(height=300, xaxis_title="Importance Score"))
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -1055,14 +1061,13 @@ CSV:"""
                         textposition='outside',
                         textfont=dict(family='IBM Plex Mono', size=10, color='#6B7A90')
                     ))
-                    fig.update_layout(
-                        **PT,
+                    fig.update_layout(**pt(
                         title="Risk Probability by Scenario (sorted highest to lowest)",
                         xaxis_title="Scenario Index",
                         yaxis_title="Risk Probability",
-                        yaxis=dict(range=[0,1.18], tickformat='.0%', gridcolor='#E2E6EC'),
+                        yaxis=dict(range=[0,1.18], tickformat='.0%'),
                         height=300, showlegend=False
-                    )
+                    ))
                     st.plotly_chart(fig, use_container_width=True)
 
                     st.download_button(
