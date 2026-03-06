@@ -10,411 +10,447 @@ import requests
 import re
 
 st.set_page_config(
-    page_title="AERIE — Risk Intelligence",
-    page_icon=None,
+    page_title="AERIE Risk Intelligence",
+    page_icon="assets/icon.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ================================================================
-# CSS — Clean Editorial Theme
-# Fonts: Fraunces (display) + IBM Plex Sans (body) + IBM Plex Mono (data)
-# Palette: Pure white, near-black, warm gray, single red accent
-# ================================================================
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300&family=IBM+Plex+Sans:wght@300;400;500&family=IBM+Plex+Mono:wght@300;400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 :root {
     --white:       #FFFFFF;
-    --off-white:   #F9F8F6;
-    --rule:        #E5E2DC;
-    --muted:       #C4BFB8;
-    --body:        #5C5750;
-    --strong:      #1A1714;
-    --accent:      #C0392B;
-    --accent-soft: #F5EAE9;
-    --mono-bg:     #F4F2EF;
+    --bg:          #F7F8FA;
+    --surface:     #FFFFFF;
+    --border:      #E2E6EC;
+    --border-dark: #C8CDD6;
+    --navy:        #0F1C2E;
+    --navy-mid:    #1E3A5F;
+    --blue:        #1D6FA4;
+    --blue-light:  #EBF4FB;
+    --muted:       #6B7A90;
+    --muted-light: #9BA8B8;
+    --green:       #1A7F5A;
+    --green-bg:    #EAF7F2;
+    --amber:       #A05C00;
+    --amber-bg:    #FEF3E2;
+    --red:         #B91C1C;
+    --red-bg:      #FEF2F2;
+    --divider:     #E2E6EC;
 }
 
-/* ---------- GLOBAL ---------- */
+* { box-sizing: border-box; }
+
 html, body, .stApp {
-    background: var(--white) !important;
-    color: var(--strong) !important;
+    background-color: var(--bg) !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    color: var(--navy) !important;
 }
 
-/* ---------- MAIN CONTENT AREA ---------- */
-section.main > div { padding-top: 2.5rem !important; }
-
-/* ---------- SIDEBAR ---------- */
+/* ---- SIDEBAR ---- */
 section[data-testid="stSidebar"] {
-    background: var(--off-white) !important;
-    border-right: 1px solid var(--rule) !important;
+    background-color: var(--navy) !important;
+    border-right: none !important;
 }
-section[data-testid="stSidebar"] * { color: var(--body) !important; }
-section[data-testid="stSidebar"] .stRadio label {
-    font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.72rem !important;
-    letter-spacing: 0.04em !important;
-    color: var(--body) !important;
-    padding: 5px 8px !important;
-    border-radius: 3px !important;
+section[data-testid="stSidebar"] > div { padding-top: 0 !important; }
+section[data-testid="stSidebar"] * { color: #FFFFFF !important; }
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] label {
+    color: rgba(255,255,255,0.65) !important;
+    font-size: 0.78rem !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
+}
+section[data-testid="stSidebar"] .stRadio > label {
+    color: rgba(255,255,255,0.5) !important;
+    font-size: 0.7rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+}
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label {
+    color: rgba(255,255,255,0.75) !important;
+    font-size: 0.82rem !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    padding: 7px 10px !important;
+    border-radius: 6px !important;
     transition: background 0.15s;
 }
-section[data-testid="stSidebar"] .stRadio label:hover {
-    background: var(--rule) !important;
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:hover {
+    background: rgba(255,255,255,0.07) !important;
+    color: #FFFFFF !important;
 }
 
-/* ---------- HEADINGS ---------- */
-h1, h2, h3 {
-    font-family: 'Fraunces', serif !important;
-    font-weight: 400 !important;
-    color: var(--strong) !important;
-    letter-spacing: -0.02em !important;
-}
+/* ---- TYPOGRAPHY ---- */
 h1 {
-    font-size: 2.2rem !important;
-    font-weight: 300 !important;
-    border-bottom: 1px solid var(--rule) !important;
-    padding-bottom: 0.75rem !important;
-    margin-bottom: 0.5rem !important;
-}
-h2 { font-size: 1.4rem !important; }
-h3 { font-size: 1.1rem !important; }
-
-/* ---------- BODY TEXT ---------- */
-p, li, .stMarkdown p {
     font-family: 'IBM Plex Sans', sans-serif !important;
-    font-size: 0.875rem !important;
-    font-weight: 300 !important;
-    color: var(--body) !important;
-    line-height: 1.65 !important;
+    font-weight: 600 !important;
+    font-size: 1.65rem !important;
+    color: var(--navy) !important;
+    letter-spacing: -0.01em !important;
+    margin-bottom: 0.25rem !important;
+    line-height: 1.2 !important;
 }
-
-/* ---------- LABELS (sliders, inputs, selects) ---------- */
-label, .stSlider label, .stSelectbox label,
-.stNumberInput label, .stTextInput label, .stTextArea label {
-    font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.67rem !important;
-    font-weight: 400 !important;
-    letter-spacing: 0.1em !important;
+h2 {
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    font-weight: 600 !important;
+    font-size: 1.1rem !important;
+    color: var(--navy) !important;
+    margin-bottom: 0.75rem !important;
+}
+h3 {
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    font-weight: 500 !important;
+    font-size: 0.9rem !important;
+    color: var(--navy-mid) !important;
     text-transform: uppercase !important;
-    color: var(--muted) !important;
+    letter-spacing: 0.06em !important;
+}
+p, li { color: var(--muted) !important; font-size: 0.85rem !important; line-height: 1.6 !important; }
+
+/* ---- PAGE HEADER CUSTOM ---- */
+.ph-wrap {
+    padding: 24px 0 20px 0;
+    border-bottom: 1px solid var(--divider);
+    margin-bottom: 28px;
+}
+.ph-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+.ph-title {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 1.7rem;
+    font-weight: 600;
+    color: var(--navy);
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+.ph-sub {
+    font-size: 0.83rem;
+    color: var(--muted);
+    margin-top: 5px;
+    font-weight: 400;
 }
 
-/* ---------- METRICS ---------- */
+/* ---- SECTION LABELS ---- */
+.sec-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.64rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted-light);
+    font-weight: 500;
+    display: block;
+    margin-bottom: 10px;
+    margin-top: 4px;
+}
+
+/* ---- METRIC CARDS ---- */
 div[data-testid="metric-container"] {
-    background: var(--off-white) !important;
-    border: 1px solid var(--rule) !important;
-    border-top: 2px solid var(--strong) !important;
-    border-radius: 0 !important;
-    padding: 20px 22px 18px !important;
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-top: 3px solid var(--blue) !important;
+    border-radius: 8px !important;
+    padding: 18px 20px !important;
 }
-div[data-testid="stMetricLabel"] > div {
+div[data-testid="metric-container"] label {
     font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.67rem !important;
-    letter-spacing: 0.1em !important;
+    font-size: 0.65rem !important;
+    letter-spacing: 0.12em !important;
     text-transform: uppercase !important;
     color: var(--muted) !important;
-    font-weight: 400 !important;
+    font-weight: 500 !important;
 }
-div[data-testid="stMetricValue"] {
-    font-family: 'Fraunces', serif !important;
-    font-size: 2rem !important;
-    font-weight: 400 !important;
-    color: var(--strong) !important;
+div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    font-size: 1.9rem !important;
+    font-weight: 600 !important;
+    color: var(--navy) !important;
+    line-height: 1.15 !important;
+}
+div[data-testid="metric-container"] div[data-testid="stMetricDelta"] {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.75rem !important;
 }
 
-/* ---------- BUTTONS ---------- */
-.stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {
-    background: var(--strong) !important;
-    color: var(--white) !important;
+/* ---- BUTTONS ---- */
+.stButton > button,
+.stDownloadButton > button,
+.stFormSubmitButton > button {
+    background: var(--navy) !important;
+    color: #FFFFFF !important;
     border: none !important;
-    border-radius: 2px !important;
+    border-radius: 6px !important;
     font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.7rem !important;
-    font-weight: 400 !important;
+    font-size: 0.72rem !important;
+    font-weight: 500 !important;
     letter-spacing: 0.1em !important;
     text-transform: uppercase !important;
-    padding: 0.6rem 1.6rem !important;
-    transition: background 0.15s !important;
-    box-shadow: none !important;
+    padding: 0.55rem 1.4rem !important;
+    transition: background 0.15s, transform 0.1s !important;
 }
-.stButton > button:hover, .stDownloadButton > button:hover,
+.stButton > button:hover,
+.stDownloadButton > button:hover,
 .stFormSubmitButton > button:hover {
-    background: var(--accent) !important;
-    transform: none !important;
-    box-shadow: none !important;
+    background: var(--navy-mid) !important;
+    transform: translateY(-1px) !important;
 }
 
-/* ---------- INPUTS ---------- */
+/* ---- FORM ---- */
+div[data-testid="stForm"] {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    padding: 24px !important;
+}
+
+/* ---- INPUTS ---- */
 div[data-baseweb="select"] > div,
 div[data-baseweb="input"] > div,
 textarea {
     background: var(--white) !important;
-    border: 1px solid var(--rule) !important;
-    border-radius: 2px !important;
-    font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.82rem !important;
-    color: var(--strong) !important;
-    transition: border-color 0.15s !important;
+    border-color: var(--border-dark) !important;
+    border-radius: 6px !important;
+    color: var(--navy) !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    font-size: 0.85rem !important;
 }
 div[data-baseweb="select"] > div:focus-within,
 div[data-baseweb="input"] > div:focus-within {
-    border-color: var(--strong) !important;
-    box-shadow: none !important;
+    border-color: var(--blue) !important;
+    box-shadow: 0 0 0 3px rgba(29,111,164,0.1) !important;
 }
 input[type="number"] {
     background: var(--white) !important;
-    color: var(--strong) !important;
+    color: var(--navy) !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    border: 1px solid var(--border-dark) !important;
+    border-radius: 6px !important;
+}
+.stNumberInput label,
+.stSlider label,
+.stSelectbox label,
+.stTextInput label,
+.stTextArea label,
+.stFileUploader label {
     font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.82rem !important;
-    border: 1px solid var(--rule) !important;
-    border-radius: 2px !important;
-}
-
-/* ---------- SLIDER ---------- */
-.stSlider > div > div > div {
-    background: var(--strong) !important;
-}
-.stSlider [data-baseweb="slider"] div[role="slider"] {
-    background: var(--white) !important;
-    border: 2px solid var(--strong) !important;
-    box-shadow: none !important;
-    width: 14px !important; height: 14px !important;
-}
-
-/* ---------- FORM CONTAINER ---------- */
-div[data-testid="stForm"] {
-    background: var(--off-white) !important;
-    border: 1px solid var(--rule) !important;
-    border-radius: 0 !important;
-    padding: 28px !important;
-}
-
-/* ---------- ALERTS ---------- */
-div[data-testid="stAlert"] {
-    border-radius: 0 !important;
-    border-left-width: 3px !important;
-    font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.78rem !important;
-    letter-spacing: 0.02em !important;
-}
-.stSuccess {
-    background: #F0F7F4 !important;
-    border-left: 3px solid #2D8C6A !important;
-    color: var(--strong) !important;
-}
-.stError {
-    background: var(--accent-soft) !important;
-    border-left: 3px solid var(--accent) !important;
-    color: var(--strong) !important;
-}
-.stWarning {
-    background: #FBF6EC !important;
-    border-left: 3px solid #C9860A !important;
-    color: var(--strong) !important;
-}
-.stInfo {
-    background: var(--off-white) !important;
-    border-left: 3px solid var(--muted) !important;
-    color: var(--strong) !important;
-}
-
-/* ---------- DATAFRAMES ---------- */
-.stDataFrame { border: 1px solid var(--rule) !important; border-radius: 0 !important; }
-.stDataFrame thead th {
-    background: var(--off-white) !important;
-    font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.67rem !important;
-    letter-spacing: 0.08em !important;
+    font-size: 0.68rem !important;
+    letter-spacing: 0.1em !important;
     text-transform: uppercase !important;
     color: var(--muted) !important;
-    border-bottom: 1px solid var(--rule) !important;
+    font-weight: 500 !important;
+    margin-bottom: 4px !important;
 }
-.stDataFrame tbody td {
+
+/* ---- SLIDER ---- */
+.stSlider [data-baseweb="slider"] [role="slider"] {
+    background: var(--blue) !important;
+    border-color: var(--white) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2) !important;
+}
+.stSlider > div > div > div:first-child { background: var(--blue) !important; }
+
+/* ---- ALERTS ---- */
+.stSuccess {
+    background: var(--green-bg) !important;
+    border-left: 3px solid var(--green) !important;
+    color: var(--green) !important;
+    border-radius: 6px !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+}
+.stError {
+    background: var(--red-bg) !important;
+    border-left: 3px solid var(--red) !important;
+    color: var(--red) !important;
+    border-radius: 6px !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+}
+.stWarning {
+    background: var(--amber-bg) !important;
+    border-left: 3px solid var(--amber) !important;
+    color: var(--amber) !important;
+    border-radius: 6px !important;
+}
+.stInfo {
+    background: var(--blue-light) !important;
+    border-left: 3px solid var(--blue) !important;
+    color: var(--navy-mid) !important;
+    border-radius: 6px !important;
+}
+
+/* Force alert text colours */
+.stSuccess p, .stSuccess span { color: var(--green) !important; font-size: 0.85rem !important; }
+.stError   p, .stError   span { color: var(--red)   !important; font-size: 0.85rem !important; }
+.stWarning p, .stWarning span { color: var(--amber) !important; font-size: 0.85rem !important; }
+.stInfo    p, .stInfo    span { color: var(--navy-mid) !important; font-size: 0.85rem !important; }
+
+/* ---- DATAFRAMES ---- */
+.stDataFrame {
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+}
+
+/* ---- FILE UPLOADER ---- */
+div[data-testid="stFileUploader"] {
+    background: var(--surface) !important;
+    border: 1.5px dashed var(--border-dark) !important;
+    border-radius: 8px !important;
+}
+div[data-testid="stFileUploader"]:hover {
+    border-color: var(--blue) !important;
+}
+
+/* ---- CAPTION / MONO ---- */
+.stCaption, small {
     font-family: 'IBM Plex Mono', monospace !important;
+    color: var(--muted-light) !important;
+    font-size: 0.7rem !important;
+}
+
+/* ---- JSON ---- */
+.stJson {
+    background: var(--bg) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 6px !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.75rem !important;
+}
+
+/* ---- CODE ---- */
+code, pre {
+    background: var(--bg) !important;
+    color: var(--navy-mid) !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 5px !important;
     font-size: 0.78rem !important;
 }
 
-/* ---------- CODE / JSON ---------- */
-code, pre, .stJson {
-    background: var(--mono-bg) !important;
-    font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.75rem !important;
-    border: 1px solid var(--rule) !important;
-    border-radius: 0 !important;
-    color: var(--strong) !important;
-}
+/* ---- SPINNER ---- */
+.stSpinner > div { border-top-color: var(--blue) !important; }
 
-/* ---------- FILE UPLOADER ---------- */
-div[data-testid="stFileUploader"] {
-    background: var(--off-white) !important;
-    border: 1.5px dashed var(--muted) !important;
-    border-radius: 0 !important;
-}
-div[data-testid="stFileUploader"]:hover { border-color: var(--strong) !important; }
+/* ---- DIVIDER ---- */
+hr { border-color: var(--divider) !important; margin: 1.5rem 0 !important; }
 
-/* ---------- DIVIDER ---------- */
-hr {
-    border: none !important;
-    border-top: 1px solid var(--rule) !important;
-    margin: 2rem 0 !important;
-}
-
-/* ---------- CAPTION ---------- */
-.stCaption, small {
-    font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.67rem !important;
-    letter-spacing: 0.06em !important;
-    color: var(--muted) !important;
-}
-
-/* ---------- SPINNER ---------- */
-.stSpinner > div { border-top-color: var(--strong) !important; }
-
-/* ---------- CUSTOM COMPONENTS ---------- */
-.page-eyebrow {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.67rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 0.4rem;
-}
-.page-title {
-    font-family: 'Fraunces', serif;
-    font-size: 2.1rem;
-    font-weight: 300;
-    color: var(--strong);
-    letter-spacing: -0.025em;
-    line-height: 1.1;
-    margin-bottom: 0.35rem;
-}
-.page-desc {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 0.85rem;
-    font-weight: 300;
-    color: var(--body);
-    line-height: 1.5;
-    margin-bottom: 1.8rem;
-}
-
-.section-rule {
-    border: none;
-    border-top: 1px solid var(--rule);
-    margin: 1.8rem 0 1.2rem 0;
-}
-.section-label {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--muted);
-    display: block;
-    margin-bottom: 0.8rem;
-}
-
-.risk-pill {
+/* ---- RISK BADGE ---- */
+.risk-badge {
     display: inline-block;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.68rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 3px 10px;
-    border-radius: 2px;
-    font-weight: 400;
-}
-.risk-low    { background: #EAF5F0; color: #2D8C6A; }
-.risk-medium { background: #FBF6EC; color: #C9860A; }
-.risk-high   { background: var(--accent-soft); color: var(--accent); }
-
-.data-row {
+    padding: 4px 12px;
+    border-radius: 4px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 0.72rem;
-    color: var(--body);
-    padding: 5px 0;
-    border-bottom: 1px solid var(--rule);
+    font-weight: 500;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+.risk-low    { background: var(--green-bg); color: var(--green);     border: 1px solid #A7D7C5; }
+.risk-medium { background: var(--amber-bg); color: var(--amber);     border: 1px solid #F6C980; }
+.risk-high   { background: var(--red-bg);   color: var(--red);       border: 1px solid #FCA5A5; }
+.risk-online { background: #EAF7F2; color: #1A7F5A; border: 1px solid #A7D7C5; }
+
+/* ---- INFO PANEL ---- */
+.info-row {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.82rem;
 }
-.data-row span:first-child { color: var(--muted); }
+.info-row:last-child { border-bottom: none; }
+.info-key { color: var(--muted); font-weight: 400; }
+.info-val { color: var(--navy); font-weight: 500; font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; }
 
-.sidebar-wordmark {
-    font-family: 'Fraunces', serif;
-    font-size: 1.25rem;
-    font-weight: 300;
-    letter-spacing: -0.02em;
-    color: var(--strong) !important;
-    -webkit-text-fill-color: var(--strong) !important;
-}
-.sidebar-tagline {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.62rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--muted) !important;
-    -webkit-text-fill-color: var(--muted) !important;
-}
-.verdict-major {
-    background: var(--accent-soft);
-    border-left: 3px solid var(--accent);
+/* ---- USAGE CARD ---- */
+.usage-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--blue);
+    border-radius: 6px;
     padding: 14px 18px;
+    margin-bottom: 10px;
+}
+.usage-title {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.78rem;
+    font-size: 0.72rem;
+    font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--accent);
-    font-weight: 400;
-}
-.verdict-minor {
-    background: #EAF5F0;
-    border-left: 3px solid #2D8C6A;
-    padding: 14px 18px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.78rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #2D8C6A;
-    font-weight: 400;
-}
-
-.stat-block {
-    border-top: 2px solid var(--strong);
-    padding: 14px 0 10px 0;
-}
-.stat-block .stat-label {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--muted);
+    color: var(--navy);
     margin-bottom: 4px;
 }
-.stat-block .stat-value {
-    font-family: 'Fraunces', serif;
-    font-size: 1.9rem;
-    font-weight: 300;
-    color: var(--strong);
-    letter-spacing: -0.02em;
-    line-height: 1;
+.usage-desc {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.5;
 }
+
+/* ---- SIDEBAR IDENTITY ---- */
+.sidebar-id {
+    padding: 28px 18px 20px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 8px;
+}
+.sidebar-name {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #FFFFFF;
+    letter-spacing: 0.04em;
+}
+.sidebar-full {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.38);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-top: 4px;
+}
+.sidebar-feat-item {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: rgba(255,255,255,0.4);
+    padding: 3px 0;
+    display: flex;
+    gap: 10px;
+}
+.sidebar-feat-num { color: rgba(255,255,255,0.2); min-width: 18px; }
+.sidebar-feat-name { color: rgba(255,255,255,0.5); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 3px; }
 </style>
 """, unsafe_allow_html=True)
 
 # ================================================================
-# PLOTLY THEME — clean, light
+# PLOTLY THEME
 # ================================================================
 PT = dict(
     paper_bgcolor='rgba(0,0,0,0)',
-    plot_bgcolor='#F9F8F6',
-    font=dict(family='IBM Plex Mono, monospace', color='#9C9590', size=10),
-    xaxis=dict(gridcolor='#E5E2DC', linecolor='#E5E2DC', zeroline=False,
-               tickfont=dict(color='#9C9590', size=9)),
-    yaxis=dict(gridcolor='#E5E2DC', linecolor='#E5E2DC', zeroline=False,
-               tickfont=dict(color='#9C9590', size=9)),
-    title=dict(font=dict(family='Fraunces, serif', color='#1A1714', size=13), x=0),
-    margin=dict(t=48, b=36, l=56, r=24),
+    plot_bgcolor='#FAFBFC',
+    font=dict(family='IBM Plex Mono, monospace', color='#6B7A90', size=11),
+    xaxis=dict(gridcolor='#E2E6EC', linecolor='#E2E6EC', tickfont=dict(color='#6B7A90', size=10)),
+    yaxis=dict(gridcolor='#E2E6EC', linecolor='#E2E6EC', tickfont=dict(color='#6B7A90', size=10)),
+    title=dict(font=dict(family='IBM Plex Sans, sans-serif', color='#0F1C2E', size=13), x=0),
+    margin=dict(t=44, b=36, l=16, r=16),
 )
 
 # ================================================================
@@ -422,22 +458,19 @@ PT = dict(
 # ================================================================
 @st.cache_resource
 def load_model():
-    model = joblib.load('aerie_model.pkl')
-    scaler = joblib.load('aerie_scaler.pkl')
+    m = joblib.load('aerie_model.pkl')
+    s = joblib.load('aerie_scaler.pkl')
     with open('feature_list.pkl', 'rb') as f:
-        features = pickle.load(f)
-    return model, scaler, features
+        fl = pickle.load(f)
+    return m, s, fl
 
 try:
     model, scaler, feature_list = load_model()
-    st.sidebar.markdown(
-        '<span style="font-family:IBM Plex Mono,monospace;font-size:0.65rem;'
-        'letter-spacing:0.1em;text-transform:uppercase;color:#2D8C6A;">Model Active</span>',
-        unsafe_allow_html=True
-    )
+    model_ok = True
 except Exception as e:
-    st.sidebar.error(str(e))
+    st.error(f"Failed to load model: {e}")
     st.stop()
+    model_ok = False
 
 FEATURE_META = {
     'severity':                   {"label": "Severity",               "min": 1,   "max": 5,      "default": 3,     "step": 1,    "fmt": ".0f"},
@@ -456,8 +489,7 @@ FEATURE_META = {
 # ================================================================
 def predict_single(d):
     df = pd.DataFrame([d])[feature_list]
-    scaled = scaler.transform(df)
-    return model.predict(scaled)[0], model.predict_proba(scaled)[0][1]
+    return model.predict(scaler.transform(df))[0], model.predict_proba(scaler.transform(df))[0][1]
 
 def predict_batch(df):
     missing = set(feature_list) - set(df.columns)
@@ -470,37 +502,39 @@ def predict_batch(df):
         'probability': model.predict_proba(scaled)[:,1]
     }), None
 
-def risk_pill(p):
-    if p < 0.3:
-        return '<span class="risk-pill risk-low">Low</span>'
-    elif p < 0.7:
-        return '<span class="risk-pill risk-medium">Medium</span>'
-    return '<span class="risk-pill risk-high">High</span>'
+def risk_badge(p):
+    if p < 0.3:   return '<span class="risk-badge risk-low">Low Risk</span>'
+    elif p < 0.7: return '<span class="risk-badge risk-medium">Medium Risk</span>'
+    return            '<span class="risk-badge risk-high">High Risk</span>'
 
 def gauge_chart(proba):
-    color = "#2D8C6A" if proba < 0.3 else ("#C9860A" if proba < 0.7 else "#C0392B")
+    if proba < 0.3:   bar_color, label = "#1A7F5A", "LOW"
+    elif proba < 0.7: bar_color, label = "#A05C00", "MEDIUM"
+    else:             bar_color, label = "#B91C1C", "HIGH"
+
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=round(proba * 100, 1),
-        number={"suffix": "%", "font": {"size": 44, "family": "Fraunces, serif", "color": color}},
+        number={"suffix": "%", "font": {"size": 38, "family": "IBM Plex Sans", "color": "#0F1C2E"}},
         gauge={
-            "axis": {"range": [0, 100], "tickcolor": "#C4BFB8",
-                     "tickfont": {"color": "#C4BFB8", "size": 9, "family": "IBM Plex Mono, monospace"},
-                     "tickwidth": 1},
-            "bar": {"color": color, "thickness": 0.18},
+            "axis": {"range": [0,100], "tickcolor":"#C8CDD6",
+                     "tickfont": {"color":"#9BA8B8","size":10,"family":"IBM Plex Mono"}},
+            "bar": {"color": bar_color, "thickness": 0.22},
             "bgcolor": "rgba(0,0,0,0)",
             "borderwidth": 0,
             "steps": [
-                {"range": [0, 30],  "color": "#EAF5F0"},
-                {"range": [30, 70], "color": "#FBF6EC"},
-                {"range": [70, 100],"color": "#F5EAE9"},
+                {"range":[0,30],  "color":"rgba(26,127,90,0.08)"},
+                {"range":[30,70], "color":"rgba(160,92,0,0.07)"},
+                {"range":[70,100],"color":"rgba(185,28,28,0.08)"},
             ],
+            "threshold":{"line":{"color":bar_color,"width":2},"thickness":0.78,"value":proba*100},
         },
-        title={"text": "PROBABILITY OF MAJOR EVENT",
-               "font": {"size": 9, "family": "IBM Plex Mono, monospace", "color": "#C4BFB8"}},
+        title={"text": f"MAJOR EVENT PROBABILITY — {label}",
+               "font":{"size":9,"family":"IBM Plex Mono","color":"#9BA8B8"}},
     ))
     fig.update_layout(height=240, paper_bgcolor='rgba(0,0,0,0)',
-                      margin=dict(t=40, b=0, l=20, r=20))
+                      plot_bgcolor='rgba(0,0,0,0)',
+                      margin=dict(t=40, b=8, l=20, r=20))
     return fig
 
 def sweep_chart(base_dict, sweep_feature):
@@ -514,40 +548,36 @@ def sweep_chart(base_dict, sweep_feature):
         _, p = predict_single(d)
         probas.append(p * 100)
 
-    _, current_p = predict_single(base_dict)
-    current_val = base_dict[sweep_feature]
+    cv = base_dict[sweep_feature]
+    _, cp = predict_single(base_dict)
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=vals, y=probas, mode='lines',
-        line=dict(color='#1A1714', width=1.8),
-        fill='tozeroy', fillcolor='rgba(26,23,20,0.05)',
-        name='Risk'
+        line=dict(color='#1D6FA4', width=2),
+        fill='tozeroy', fillcolor='rgba(29,111,164,0.07)',
+        name="Risk %", showlegend=False
     ))
     fig.add_trace(go.Scatter(
-        x=[current_val], y=[current_p * 100],
-        mode='markers',
-        marker=dict(size=9, color='#C0392B', symbol='circle',
-                    line=dict(color='#FFFFFF', width=2)),
-        name='Current'
+        x=[cv], y=[cp*100], mode='markers',
+        marker=dict(size=9, color='#1D6FA4', symbol='circle',
+                    line=dict(color='white', width=2)),
+        name="Current value", showlegend=False
     ))
-    fig.add_vline(x=current_val, line_dash="dot", line_color="#C4BFB8", line_width=1,
-                  annotation_text=f"{current_val:{meta['fmt']}}",
-                  annotation_font=dict(color="#9C9590", size=9,
-                                       family="IBM Plex Mono, monospace"),
-                  annotation_position="top")
-    fig.add_hline(y=50, line_dash="dot", line_color="#C4BFB8", line_width=1,
-                  annotation_text="50%",
-                  annotation_font=dict(color="#9C9590", size=9,
-                                       family="IBM Plex Mono, monospace"),
-                  annotation_position="right")
+    fig.add_vline(x=cv, line_dash="dash", line_color="#C8CDD6", line_width=1.5,
+        annotation_text=f"Current: {cv:{meta['fmt']}}",
+        annotation_font_color="#6B7A90", annotation_font_size=10,
+        annotation_bgcolor="white", annotation_bordercolor="#E2E6EC")
+    fig.add_hline(y=50, line_dash="dot", line_color="#E2E6EC", line_width=1,
+        annotation_text="50%", annotation_font_color="#C8CDD6",
+        annotation_font_size=9, annotation_position="right")
+
     fig.update_layout(
         **PT,
         title=f"Sensitivity — {meta['label']}",
         xaxis_title=meta['label'],
-        yaxis_title="Risk (%)",
-        yaxis=dict(range=[0, 108], gridcolor='#E5E2DC'),
-        showlegend=False,
+        yaxis_title="Risk Probability (%)",
+        yaxis=dict(range=[0,108], gridcolor='#E2E6EC'),
         height=320,
     )
     return fig
@@ -558,57 +588,65 @@ def get_available_gemini_models(api_key):
         r = requests.get(url, timeout=15)
         r.raise_for_status()
         usable = [
-            m["name"].replace("models/", "")
-            for m in r.json().get("models", [])
-            if "generateContent" in m.get("supportedGenerationMethods", [])
-            and "gemini" in m.get("name", "").lower()
-            and "vision" not in m.get("name", "").lower()
-            and "embedding" not in m.get("name", "").lower()
+            m["name"].replace("models/","")
+            for m in r.json().get("models",[])
+            if "generateContent" in m.get("supportedGenerationMethods",[])
+            and "gemini" in m.get("name","").lower()
+            and "vision" not in m.get("name","").lower()
+            and "embedding" not in m.get("name","").lower()
         ]
         usable.sort(key=lambda x: (0 if "flash" in x else 1, x))
-        return usable or ["gemini-2.0-flash", "gemini-1.5-flash-8b", "gemini-1.5-flash"]
+        return usable or ["gemini-2.0-flash","gemini-1.5-flash-8b","gemini-1.5-flash"]
     except Exception:
-        return ["gemini-2.0-flash", "gemini-1.5-flash-8b", "gemini-1.5-flash"]
+        return ["gemini-2.0-flash","gemini-1.5-flash-8b","gemini-1.5-flash"]
 
 def call_gemini_api(prompt, api_key):
     last_error = None
-    for model_name in get_available_gemini_models(api_key):
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+    for mn in get_available_gemini_models(api_key):
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{mn}:generateContent?key={api_key}"
         try:
             r = requests.post(url, json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024}
+                "contents":[{"parts":[{"text":prompt}]}],
+                "generationConfig":{"temperature":0.7,"maxOutputTokens":1024}
             }, timeout=60)
-            if r.status_code in (429, 404, 403):
-                last_error = f"{r.status_code} on {model_name}"
-                continue
+            if r.status_code in (429,404,403):
+                last_error = f"{r.status_code} on {mn}"; continue
             r.raise_for_status()
-            return r.json()["candidates"][0]["content"]["parts"][0]["text"], model_name
+            return r.json()["candidates"][0]["content"]["parts"][0]["text"], mn
         except Exception as e:
-            last_error = str(e)
-    raise Exception(f"No working Gemini model found. Last error: {last_error}")
+            last_error = str(e); continue
+    raise Exception(f"No working Gemini model found.\nLast error: {last_error}")
 
 def parse_csv_block(text):
-    m = re.search(r'```(?:csv)?\s*\n(.*?)```', text, re.DOTALL | re.IGNORECASE)
-    if m:
-        return m.group(1).strip()
+    m = re.search(r'```(?:csv)?\s*\n(.*?)```', text, re.DOTALL|re.IGNORECASE)
+    if m: return m.group(1).strip()
     for i, line in enumerate(text.splitlines()):
         if 'severity' in line.lower() and ',' in line:
             return "\n".join(text.splitlines()[i:])
     return text.strip()
 
+def page_header(label, title, sub):
+    st.markdown(f"""
+    <div class="ph-wrap">
+        <div class="ph-label">{label}</div>
+        <div class="ph-title">{title}</div>
+        <div class="ph-sub">{sub}</div>
+    </div>""", unsafe_allow_html=True)
+
 # ================================================================
 # SIDEBAR
 # ================================================================
-st.sidebar.markdown("""
-<div style="padding: 6px 0 22px 0;">
-    <div class="sidebar-wordmark">Aerie</div>
-    <div class="sidebar-tagline">Adaptive Enterprise Risk Intelligence</div>
+st.sidebar.markdown(f"""
+<div class="sidebar-id">
+    <div class="sidebar-name">AERIE</div>
+    <div class="sidebar-full">Adaptive Enterprise Risk Intelligence Engine</div>
+    <div style="margin-top:14px;">
+        <span class="risk-badge risk-online">Model Online</span>
+    </div>
 </div>
 """, unsafe_allow_html=True)
-st.sidebar.markdown("---")
 
-page = st.sidebar.radio("", [
+page = st.sidebar.radio("Navigation", [
     "Single Prediction",
     "Batch Upload",
     "Scenario Simulator",
@@ -618,14 +656,15 @@ page = st.sidebar.radio("", [
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(
-    '<span style="font-family:IBM Plex Mono,monospace;font-size:0.62rem;'
-    'letter-spacing:0.12em;text-transform:uppercase;color:#C4BFB8;">Features</span>',
+    '<div style="font-family:IBM Plex Mono,monospace;font-size:0.6rem;letter-spacing:0.14em;'
+    'text-transform:uppercase;color:rgba(255,255,255,0.25);padding:0 0 8px 0;">Feature Index</div>',
     unsafe_allow_html=True
 )
 for i, f in enumerate(feature_list):
     st.sidebar.markdown(
-        f'<div style="font-family:IBM Plex Mono,monospace;font-size:0.65rem;'
-        f'color:#C4BFB8;padding:2px 0;">{i+1:02d} &nbsp; {f}</div>',
+        f'<div class="sidebar-feat-item">'
+        f'<span class="sidebar-feat-num">{i+1:02d}</span>'
+        f'<span class="sidebar-feat-name">{f}</span></div>',
         unsafe_allow_html=True
     )
 
@@ -633,107 +672,91 @@ for i, f in enumerate(feature_list):
 # SINGLE PREDICTION
 # ================================================================
 if page == "Single Prediction":
-    st.markdown('<div class="page-eyebrow">Incident Assessment</div>', unsafe_allow_html=True)
-    st.markdown('<div class="page-title">Single Prediction</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="page-desc">Enter incident parameters to forecast the probability of a major event.</div>',
-        unsafe_allow_html=True
-    )
+    page_header("Incident Analysis", "Single Incident Predictor",
+                "Enter incident parameters to forecast major event probability")
 
     with st.form("pred_form"):
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3 = st.columns([1,1,1])
         with c1:
+            st.markdown('<span class="sec-label">Incident Severity</span>', unsafe_allow_html=True)
             severity = st.slider("Severity (1–5)", 1, 5, 3)
             downtime = st.number_input("Downtime (hours)", 0.0, 100.0, 5.0)
             financial_impact = st.number_input("Financial Impact ($)", 0, 500000, 50000, step=5000)
             regulatory_flag = st.selectbox("Regulatory Flag", [0, 1])
         with c2:
+            st.markdown('<span class="sec-label">Asset Profile</span>', unsafe_allow_html=True)
             data_sensitivity = st.slider("Data Sensitivity (0–1)", 0.0, 1.0, 0.5)
             criticality = st.slider("Criticality (1–5)", 1, 5, 3)
             asset_incident_prev_count = st.number_input("Prior Incidents on Asset", 0, 20, 0)
             days_since_audit = st.number_input("Days Since Last Audit", 0, 365, 30)
         with c3:
+            st.markdown('<span class="sec-label">Input Summary</span>', unsafe_allow_html=True)
             sxd = severity * data_sensitivity
-            st.markdown('<span class="section-label">Computed</span>', unsafe_allow_html=True)
             st.metric("Severity x Sensitivity", f"{sxd:.2f}")
-            st.markdown('<span class="section-label" style="margin-top:1rem;display:block;">Input Vector</span>', unsafe_allow_html=True)
             st.json({
                 "severity": severity, "downtime": downtime,
                 "financial_impact": financial_impact, "regulatory_flag": regulatory_flag,
                 "data_sensitivity": data_sensitivity, "criticality": criticality,
-                "sev_x_sens": round(sxd, 3),
-                "prior_incidents": asset_incident_prev_count,
+                "sev_x_sens": round(sxd,3), "prior_incidents": asset_incident_prev_count,
                 "days_since_audit": days_since_audit
             })
-        submitted = st.form_submit_button("Run Prediction", use_container_width=True)
+        st.form_submit_button("Run Prediction", use_container_width=True)
 
-    if submitted:
-        d = {
-            'severity': severity, 'downtime': downtime, 'financial_impact': financial_impact,
-            'regulatory_flag': regulatory_flag, 'data_sensitivity': data_sensitivity,
-            'criticality': criticality, 'severity_x_data_sensitivity': sxd,
-            'asset_incident_prev_count': asset_incident_prev_count,
-            'days_since_audit': days_since_audit
-        }
-        pred, proba = predict_single(d)
-        st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
+    # Run prediction on every form state (not just submit) by reading values
+    d = {
+        'severity': severity, 'downtime': downtime, 'financial_impact': financial_impact,
+        'regulatory_flag': regulatory_flag, 'data_sensitivity': data_sensitivity,
+        'criticality': criticality, 'severity_x_data_sensitivity': sxd,
+        'asset_incident_prev_count': asset_incident_prev_count, 'days_since_audit': days_since_audit
+    }
+    pred, proba = predict_single(d)
 
-        v_col, g_col, _ = st.columns([1, 1.4, 0.6])
-        with v_col:
-            st.markdown('<span class="section-label">Verdict</span>', unsafe_allow_html=True)
-            if pred == 1:
-                st.markdown('<div class="verdict-major">Major Event</div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<div class="verdict-minor">Minor / Routine</div>', unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown(f"""
-            <div class="stat-block">
-                <div class="stat-label">Probability</div>
-                <div class="stat-value">{proba:.1%}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.markdown(f"<div style='margin-top:10px;'>{risk_pill(proba)}</div>", unsafe_allow_html=True)
-        with g_col:
-            st.plotly_chart(gauge_chart(proba), use_container_width=True)
+    st.markdown("---")
+    r1, r2, r3 = st.columns([1,1,2])
+    with r1:
+        if pred == 1:
+            st.error("Major Event Predicted")
+        else:
+            st.success("Minor / Routine Incident")
+    with r2:
+        st.metric("Risk Probability", f"{proba:.1%}")
+        st.markdown(risk_badge(proba), unsafe_allow_html=True)
+    with r3:
+        st.plotly_chart(gauge_chart(proba), use_container_width=True)
 
-        st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
-        st.markdown('<span class="section-label">Feature Importance</span>', unsafe_allow_html=True)
-        imp_df = pd.DataFrame({
-            'Feature': feature_list,
-            'Importance': model.feature_importances_
-        }).sort_values('Importance')
-        fig = go.Figure(go.Bar(
-            x=imp_df['Importance'], y=imp_df['Feature'], orientation='h',
-            marker=dict(color='#1A1714', opacity=[0.25 + 0.75 * v for v in
-                        (imp_df['Importance'] / imp_df['Importance'].max()).tolist()])
-        ))
-        fig.update_layout(**PT, height=280, showlegend=False,
-                          xaxis_title="Importance Score")
-        st.plotly_chart(fig, use_container_width=True)
+    st.markdown('<span class="sec-label">Feature Importance</span>', unsafe_allow_html=True)
+    imp_df = pd.DataFrame({'Feature': feature_list, 'Importance': model.feature_importances_}).sort_values('Importance')
+    fig = go.Figure(go.Bar(
+        x=imp_df['Importance'], y=imp_df['Feature'], orientation='h',
+        marker=dict(color=imp_df['Importance'],
+                    colorscale=[[0,'#EBF4FB'],[1,'#1D6FA4']],
+                    showscale=False)
+    ))
+    fig.update_layout(**PT, height=280, xaxis_title="Importance Score")
+    st.plotly_chart(fig, use_container_width=True)
 
 # ================================================================
 # BATCH UPLOAD
 # ================================================================
 elif page == "Batch Upload":
-    st.markdown('<div class="page-eyebrow">Bulk Processing</div>', unsafe_allow_html=True)
-    st.markdown('<div class="page-title">Batch Risk Scoring</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="page-desc">Upload a CSV to score multiple incidents in a single pass.</div>',
-        unsafe_allow_html=True
-    )
+    page_header("Batch Processing", "Batch Risk Scoring",
+                "Upload a CSV to score multiple incidents simultaneously")
 
     st.download_button(
         "Download Template CSV",
         pd.DataFrame(columns=feature_list).to_csv(index=False),
         "aerie_template.csv", "text/csv"
     )
-    uploaded = st.file_uploader("", type="csv", label_visibility="collapsed")
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    uploaded = st.file_uploader("Upload incidents CSV", type="csv")
+
     if uploaded:
         df = pd.read_csv(uploaded)
-        st.markdown('<span class="section-label">Preview</span>', unsafe_allow_html=True)
+        st.markdown('<span class="sec-label">Data Preview</span>', unsafe_allow_html=True)
         st.dataframe(df.head(), use_container_width=True)
+
         if st.button("Score All Incidents", use_container_width=True):
-            with st.spinner("Scoring…"):
+            with st.spinner("Running batch inference..."):
                 results, err = predict_batch(df)
             if err:
                 st.error(err)
@@ -743,19 +766,17 @@ elif page == "Batch Upload":
                 m1.metric("Major Events", int(results['predicted_major_event'].sum()))
                 m2.metric("Avg Probability", f"{results['probability'].mean():.1%}")
                 m3.metric("High Risk  >70%", int((results['probability'] > 0.7).sum()))
-                st.markdown('<span class="section-label" style="margin-top:1.5rem;display:block;">Results</span>', unsafe_allow_html=True)
+                st.markdown("---")
+                st.markdown('<span class="sec-label">Scored Results</span>', unsafe_allow_html=True)
                 st.dataframe(out, use_container_width=True)
 
-                fig = go.Figure(go.Histogram(
-                    x=results['probability'], nbinsx=20,
-                    marker=dict(color='#1A1714', opacity=0.7, line=dict(color='#F9F8F6', width=1))
-                ))
-                fig.add_vline(x=0.5, line_dash="dot", line_color="#C0392B", line_width=1.5,
-                              annotation_text="Decision boundary",
-                              annotation_font=dict(color="#C0392B", size=9,
-                                                   family="IBM Plex Mono, monospace"))
-                fig.update_layout(**PT, title="Risk Probability Distribution",
-                                  xaxis_title="Probability", yaxis_title="Count")
+                fig = px.histogram(results, x='probability', nbins=20,
+                    title="Risk Probability Distribution",
+                    color_discrete_sequence=['#1D6FA4'])
+                fig.add_vline(x=0.5, line_dash="dash", line_color="#A05C00",
+                    annotation_text="Decision boundary",
+                    annotation_font_color="#A05C00", annotation_font_size=10)
+                fig.update_layout(**PT)
                 st.plotly_chart(fig, use_container_width=True)
                 st.download_button("Download Results", out.to_csv(index=False),
                                    "aerie_predictions.csv", "text/csv")
@@ -764,12 +785,8 @@ elif page == "Batch Upload":
 # SCENARIO SIMULATOR
 # ================================================================
 elif page == "Scenario Simulator":
-    st.markdown('<div class="page-eyebrow">What-If Analysis</div>', unsafe_allow_html=True)
-    st.markdown('<div class="page-title">Scenario Simulator</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="page-desc">Adjust parameters and sweep any variable to see how it shifts predicted risk.</div>',
-        unsafe_allow_html=True
-    )
+    page_header("What-If Analysis", "Scenario Simulator",
+                "Adjust parameters and sweep any variable to see its effect on predicted risk")
 
     c1, c2 = st.columns(2)
     with c1:
@@ -791,76 +808,73 @@ elif page == "Scenario Simulator":
     }
     pred, proba = predict_single(base)
 
-    st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
-    g_col, v_col = st.columns([1.4, 1])
-    with g_col:
+    st.markdown("---")
+    gc, vc = st.columns([1.6, 1])
+    with gc:
         st.plotly_chart(gauge_chart(proba), use_container_width=True)
-    with v_col:
-        st.markdown('<span class="section-label">Assessment</span>', unsafe_allow_html=True)
+    with vc:
+        st.markdown('<span class="sec-label">Assessment</span>', unsafe_allow_html=True)
         if pred == 1:
-            st.markdown('<div class="verdict-major">Major Event</div>', unsafe_allow_html=True)
+            st.error("Major Event Predicted")
         else:
-            st.markdown('<div class="verdict-minor">Minor / Routine</div>', unsafe_allow_html=True)
-        st.markdown(f"""
-        <div class="stat-block" style="margin-top:14px;">
-            <div class="stat-label">Probability</div>
-            <div class="stat-value">{proba:.1%}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown(f"<div style='margin-top:10px;margin-bottom:16px;'>{risk_pill(proba)}</div>",
-                    unsafe_allow_html=True)
-        st.markdown('<span class="section-label">Parameters</span>', unsafe_allow_html=True)
-        for k, v in [("Severity", severity), ("Downtime", f"{downtime}h"),
-                     ("Financial", f"${financial:,}"), ("Criticality", crit),
-                     ("Prior incidents", prev_count), ("Days since audit", audit_days)]:
+            st.success("Minor / Routine Incident")
+        st.metric("Risk Probability", f"{proba:.1%}")
+        st.markdown(risk_badge(proba), unsafe_allow_html=True)
+        st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+        st.markdown('<span class="sec-label">Current Parameters</span>', unsafe_allow_html=True)
+        rows = [
+            ("Severity", severity), ("Downtime", f"{downtime:.1f}h"),
+            ("Financial Impact", f"${financial:,}"), ("Criticality", crit),
+            ("Prior Incidents", prev_count), ("Days Since Audit", audit_days),
+        ]
+        for k, v in rows:
             st.markdown(
-                f'<div class="data-row"><span>{k}</span><span>{v}</span></div>',
+                f'<div class="info-row"><span class="info-key">{k}</span>'
+                f'<span class="info-val">{v}</span></div>',
                 unsafe_allow_html=True
             )
 
-    st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
-    st.markdown('<span class="section-label">Sensitivity Analysis</span>', unsafe_allow_html=True)
-    sweep_feat = st.selectbox(
-        "",
-        [f for f in feature_list if f != 'severity_x_data_sensitivity'],
-        format_func=lambda x: FEATURE_META[x]["label"],
-        label_visibility="collapsed"
+    st.markdown("---")
+    st.markdown('<span class="sec-label">Sensitivity Analysis</span>', unsafe_allow_html=True)
+    st.markdown(
+        '<p style="font-size:0.82rem;color:#6B7A90;margin:-2px 0 14px 0;">'
+        'Select a variable to sweep across its full range. All others remain fixed.</p>',
+        unsafe_allow_html=True
     )
-    with st.spinner("Computing…"):
+    sweep_feat = st.selectbox(
+        "Variable to sweep",
+        [f for f in feature_list if f != 'severity_x_data_sensitivity'],
+        format_func=lambda x: FEATURE_META[x]["label"]
+    )
+    with st.spinner("Computing sensitivity..."):
         st.plotly_chart(sweep_chart(base, sweep_feat), use_container_width=True)
 
-    st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
-    st.markdown('<span class="section-label">Worst-Case Delta</span>', unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown('<span class="sec-label">Worst-Case Risk Delta</span>', unsafe_allow_html=True)
     st.markdown(
-        '<p style="font-family:IBM Plex Sans,sans-serif;font-size:0.82rem;font-weight:300;'
-        'color:#5C5750;margin-bottom:14px;">Risk change if each feature is pushed to its maximum independently.</p>',
+        '<p style="font-size:0.82rem;color:#6B7A90;margin:-2px 0 14px 0;">'
+        'Risk increase (percentage points) when each factor is pushed to its maximum independently.</p>',
         unsafe_allow_html=True
     )
     deltas = {}
     for feat in feature_list:
-        if feat == 'severity_x_data_sensitivity':
-            continue
+        if feat == 'severity_x_data_sensitivity': continue
         w = base.copy()
         w[feat] = FEATURE_META[feat]["max"]
         w['severity_x_data_sensitivity'] = w['severity'] * w['data_sensitivity']
         _, wp = predict_single(w)
         deltas[FEATURE_META[feat]["label"]] = round((wp - proba) * 100, 2)
 
-    ddf = pd.DataFrame(list(deltas.items()), columns=["Feature", "Delta"]).sort_values("Delta")
+    ddf = pd.DataFrame(list(deltas.items()), columns=["Feature","Delta (pp)"]).sort_values("Delta (pp)")
     fig2 = go.Figure(go.Bar(
-        x=ddf["Delta"], y=ddf["Feature"], orientation='h',
-        marker=dict(
-            color=['#C0392B' if v > 0 else '#2D8C6A' for v in ddf["Delta"]],
-            opacity=0.75
-        )
+        x=ddf["Delta (pp)"], y=ddf["Feature"], orientation='h',
+        marker_color=['#B91C1C' if v > 0 else '#1A7F5A' for v in ddf["Delta (pp)"]],
+        marker_opacity=0.8
     ))
     fig2.update_layout(
-        **PT,
-        title="Percentage-point change in risk (feature at maximum)",
-        xaxis_title="pp change",
-        height=300,
-        xaxis=dict(zeroline=True, zerolinecolor='#C4BFB8', zerolinewidth=1,
-                   gridcolor='#E5E2DC'),
+        **PT, title="Risk delta when each feature is maximised",
+        xaxis_title="Percentage-point change", height=300,
+        xaxis=dict(zeroline=True, zerolinecolor='#C8CDD6', zerolinewidth=1.5, gridcolor='#E2E6EC'),
     )
     st.plotly_chart(fig2, use_container_width=True)
 
@@ -868,50 +882,39 @@ elif page == "Scenario Simulator":
 # MODEL INFO
 # ================================================================
 elif page == "Model Info":
-    st.markdown('<div class="page-eyebrow">Architecture</div>', unsafe_allow_html=True)
-    st.markdown('<div class="page-title">Model Information</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="page-desc">Random Forest classifier — architecture details, feature weights, and usage notes.</div>',
-        unsafe_allow_html=True
-    )
+    page_header("System Overview", "Model Information",
+                "Architecture, feature weights, and usage reference")
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Model", "Random Forest")
-    c2.metric("Trees", model.n_estimators)
-    c3.metric("Features", len(feature_list))
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Model Type", "Random Forest")
+    m2.metric("Decision Trees", model.n_estimators)
+    m3.metric("Input Features", len(feature_list))
 
-    st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
-    st.markdown('<span class="section-label">Feature Importances</span>', unsafe_allow_html=True)
-    imp_df = pd.DataFrame({
-        'Feature': feature_list,
-        'Importance': model.feature_importances_
-    }).sort_values('Importance')
-
+    st.markdown("---")
+    st.markdown('<span class="sec-label">Feature Importances</span>', unsafe_allow_html=True)
+    imp_df = pd.DataFrame({'Feature': feature_list, 'Importance': model.feature_importances_}).sort_values('Importance')
     fig = go.Figure(go.Bar(
         x=imp_df['Importance'], y=imp_df['Feature'], orientation='h',
-        marker=dict(
-            color='#1A1714',
-            opacity=[0.2 + 0.8 * v for v in
-                     (imp_df['Importance'] / imp_df['Importance'].max()).tolist()]
-        )
+        marker=dict(color=imp_df['Importance'],
+                    colorscale=[[0,'#EBF4FB'],[0.5,'#6BAED6'],[1,'#1D6FA4']],
+                    showscale=False)
     ))
     fig.update_layout(**PT, height=300, xaxis_title="Importance Score")
     st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
-    st.markdown('<span class="section-label">Pages</span>', unsafe_allow_html=True)
-    for name, desc in [
-        ("Single Prediction",    "Score one incident by entering its parameters manually."),
-        ("Batch Upload",         "Score multiple incidents from a CSV file in one pass."),
-        ("Scenario Simulator",   "Sweep any variable to watch the risk curve update live."),
-        ("AI Scenario Generator","Use Gemini to write structured scenarios, auto-scored by AERIE."),
+    st.markdown("---")
+    st.markdown('<span class="sec-label">Usage Reference</span>', unsafe_allow_html=True)
+    for mode, desc in [
+        ("Single Prediction", "Enter one incident manually and get an instant risk score with feature breakdown"),
+        ("Batch Upload", "Score multiple incidents from a CSV file in a single pass"),
+        ("Scenario Simulator", "Sweep any input variable and observe how the risk curve responds"),
+        ("AI Generator", "Use Gemini to write structured incident scenarios, then auto-score them"),
     ]:
         st.markdown(
-            f'<div style="padding:12px 0;border-bottom:1px solid #E5E2DC;">'
-            f'<span style="font-family:IBM Plex Mono,monospace;font-size:0.72rem;'
-            f'color:#1A1714;">{name}</span>'
-            f'<div style="font-family:IBM Plex Sans,sans-serif;font-size:0.8rem;'
-            f'font-weight:300;color:#9C9590;margin-top:3px;">{desc}</div></div>',
+            f'<div class="usage-card">'
+            f'<div class="usage-title">{mode}</div>'
+            f'<div class="usage-desc">{desc}</div>'
+            f'</div>',
             unsafe_allow_html=True
         )
 
@@ -919,54 +922,52 @@ elif page == "Model Info":
 # AI SCENARIO GENERATOR
 # ================================================================
 elif page == "AI Scenario Generator":
-    st.markdown('<div class="page-eyebrow">Generative Analysis</div>', unsafe_allow_html=True)
-    st.markdown('<div class="page-title">AI Scenario Generator</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="page-desc">Describe the incident context. Gemini generates structured scenarios — AERIE scores each one automatically.</div>',
-        unsafe_allow_html=True
-    )
+    page_header("Generative Analysis", "AI Scenario Generator",
+                "Gemini generates structured incident scenarios — AERIE scores them automatically")
 
     try:
         GEMINI_KEY = st.secrets["GEMINI_API_KEY"]
         st.sidebar.markdown(
-            '<span style="font-family:IBM Plex Mono,monospace;font-size:0.65rem;'
-            'letter-spacing:0.1em;text-transform:uppercase;color:#2D8C6A;">Gemini Connected</span>',
+            '<div style="margin-top:8px;"><span class="risk-badge risk-online">Gemini Connected</span></div>',
             unsafe_allow_html=True
         )
     except:
         GEMINI_KEY = st.text_input(
             "Google Gemini API Key", type="password",
-            help="Free key at aistudio.google.com/app/apikey"
+            help="Free key at aistudio.google.com/app/apikey — add to Streamlit secrets as GEMINI_API_KEY to avoid re-entering"
         )
 
     if not GEMINI_KEY:
-        st.markdown(
-            '<div style="background:#F9F8F6;border-left:3px solid #C4BFB8;padding:14px 18px;">'
-            '<span style="font-family:IBM Plex Mono,monospace;font-size:0.72rem;color:#5C5750;">'
-            'Add your Gemini API key above, or store it in Streamlit secrets as '
-            '<code>GEMINI_API_KEY</code>. Get a free key at aistudio.google.com/app/apikey</span></div>',
-            unsafe_allow_html=True
-        )
+        st.markdown("""
+        <div class="usage-card" style="border-left-color:#A05C00;">
+            <div class="usage-title" style="color:#A05C00;">API Key Required</div>
+            <div class="usage-desc">
+            Get a free key at <code>aistudio.google.com/app/apikey</code>.
+            Add it to Streamlit secrets as <code>GEMINI_API_KEY</code> to avoid entering it each session.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         st.stop()
 
     a1, a2 = st.columns(2)
     with a1:
         industry = st.selectbox("Industry / Context", [
-            "Financial Services", "Healthcare", "Manufacturing",
-            "Government", "Retail", "Energy & Utilities"
+            "Financial Services","Healthcare","Manufacturing",
+            "Government","Retail","Energy and Utilities"
         ])
         n_scenarios = st.slider("Number of Scenarios", 3, 10, 5)
     with a2:
         threat = st.selectbox("Threat Focus", [
-            "Mixed / Varied", "Cybersecurity", "Operational Failures",
-            "Data Breaches", "Regulatory Incidents", "Third-party / Supply Chain"
+            "Mixed / Varied","Cybersecurity","Operational Failures",
+            "Data Breaches","Regulatory Incidents","Third-party / Supply Chain"
         ])
         sev_bias = st.selectbox("Severity Bias", [
-            "Realistic mix", "Mostly high-severity", "Mostly low-severity"
+            "Realistic mix","Mostly high-severity","Mostly low-severity"
         ])
+
     extra = st.text_area(
-        "Additional Context",
-        placeholder="E.g. 'Focus on cloud infrastructure' or 'servers affected by flood'",
+        "Additional Context (optional)",
+        placeholder="E.g. 'Focus on cloud infrastructure' or 'servers are wet from flood'",
         height=80
     )
 
@@ -992,16 +993,16 @@ Example:
 CSV:"""
 
     if st.button("Generate and Score Scenarios", use_container_width=True):
-        with st.spinner("Generating scenarios…"):
+        with st.spinner("Generating scenarios..."):
             try:
                 text, used_model = call_gemini_api(prompt, GEMINI_KEY)
-                st.caption(f"model · {used_model}")
+                st.caption(f"Generated by {used_model}")
 
                 csv_text = parse_csv_block(text)
                 try:
                     scenarios_df = pd.read_csv(io.StringIO(csv_text))
                 except Exception:
-                    st.error("Could not parse structured CSV from the AI output.")
+                    st.error("Could not parse structured data from AI output.")
                     st.code(text)
                     st.stop()
 
@@ -1019,20 +1020,20 @@ CSV:"""
                     m2.metric("Avg Risk", f"{scored['probability'].mean():.1%}")
                     m3.metric("High Risk  >70%", int((scored['probability'] > 0.7).sum()))
 
-                    st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
-                    st.markdown('<span class="section-label">Scored Scenarios</span>', unsafe_allow_html=True)
+                    st.markdown("---")
+                    st.markdown('<span class="sec-label">Scored Scenarios</span>', unsafe_allow_html=True)
 
                     def highlight(row):
                         p = row['probability']
-                        c = ('rgba(192,57,43,0.06)' if p >= 0.7
-                             else 'rgba(201,134,10,0.06)' if p >= 0.3
-                             else 'rgba(45,140,106,0.06)')
-                        return [f'background-color: {c}'] * len(row)
+                        c = ('rgba(185,28,28,0.05)' if p >= 0.7
+                             else 'rgba(160,92,0,0.05)' if p >= 0.3
+                             else 'rgba(26,127,90,0.05)')
+                        return [f'background-color:{c}'] * len(row)
 
                     disp = [c for c in [
-                        'description', 'severity', 'downtime', 'financial_impact',
-                        'regulatory_flag', 'data_sensitivity', 'criticality',
-                        'probability', 'predicted_major_event'
+                        'description','severity','downtime','financial_impact',
+                        'regulatory_flag','data_sensitivity','criticality',
+                        'probability','predicted_major_event'
                     ] if c in out.columns]
 
                     st.dataframe(
@@ -1045,26 +1046,22 @@ CSV:"""
                         use_container_width=True
                     )
 
-                    colors = ['#C0392B' if p >= 0.7 else ('#C9860A' if p >= 0.3 else '#2D8C6A')
+                    colors = ['#B91C1C' if p >= 0.7 else ('#A05C00' if p >= 0.3 else '#1A7F5A')
                               for p in out['probability']]
                     fig = go.Figure(go.Bar(
-                        x=list(range(len(out))),
-                        y=out['probability'],
-                        marker=dict(color=colors, opacity=0.7,
-                                    line=dict(color='#F9F8F6', width=1)),
+                        x=list(range(len(out))), y=out['probability'],
+                        marker_color=colors, marker_opacity=0.8,
                         text=[f"{p:.0%}" for p in out['probability']],
                         textposition='outside',
-                        textfont=dict(family='IBM Plex Mono, monospace',
-                                      size=9, color='#9C9590')
+                        textfont=dict(family='IBM Plex Mono', size=10, color='#6B7A90')
                     ))
                     fig.update_layout(
                         **PT,
-                        title="Risk Probability by Scenario",
-                        xaxis_title="Scenario",
-                        yaxis=dict(range=[0, 1.2], tickformat='.0%',
-                                   gridcolor='#E5E2DC'),
-                        showlegend=False,
-                        height=300
+                        title="Risk Probability by Scenario (sorted highest to lowest)",
+                        xaxis_title="Scenario Index",
+                        yaxis_title="Risk Probability",
+                        yaxis=dict(range=[0,1.18], tickformat='.0%', gridcolor='#E2E6EC'),
+                        height=300, showlegend=False
                     )
                     st.plotly_chart(fig, use_container_width=True)
 
